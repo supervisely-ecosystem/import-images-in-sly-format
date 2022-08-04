@@ -10,7 +10,7 @@
   "main_script": "src/main.py",
   "task_location": "workspace_tasks",
   "icon": "https://i.imgur.com/lmbzQd0.png",
-  "poster": "https://user-images.githubusercontent.com/48245050/182842725-14a68b5d-2eac-4bc8-ad70-979cb05eacbd.jpg"
+  "poster": "https://user-images.githubusercontent.com/48245050/182842725-14a68b5d-2eac-4bc8-ad70-979cb05eacbd.jpg",
   "icon_cover": true,
   "headless": true,
   "instance_version": "6.4.48",
