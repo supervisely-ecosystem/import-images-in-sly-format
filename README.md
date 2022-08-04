@@ -1,6 +1,6 @@
 <div align="center" markdown>
 
-<img src="https://i.imgur.com/huPAo69.png" style="width: 100%;"/>
+<img src="https://user-images.githubusercontent.com/48245050/182842725-14a68b5d-2eac-4bc8-ad70-979cb05eacbd.jpg"/>
 
 # Import Images in Supervisely format
 
