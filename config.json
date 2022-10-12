@@ -6,14 +6,15 @@
     "images"
   ],
   "description": "Images with corresponding annotations",
-  "docker_image": "supervisely/base-py-sdk:6.66.13",
+  "docker_image": "supervisely/base-py-sdk:6.68.1",
   "main_script": "src/main.py",
   "task_location": "workspace_tasks",
   "icon": "https://i.imgur.com/lmbzQd0.png",
   "poster": "https://user-images.githubusercontent.com/48245050/182842725-14a68b5d-2eac-4bc8-ad70-979cb05eacbd.jpg",
   "icon_cover": true,
   "headless": true,
-  "instance_version": "6.4.48",
+  "min_agent_version": "6.7.4",
+  "min_instance_version": "6.5.46",
   "context_menu": {
     "target": [
       "files_folder",
