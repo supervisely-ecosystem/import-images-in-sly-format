@@ -18,7 +18,9 @@
   "context_menu": {
     "target": [
       "files_folder",
-      "files_file"
+      "files_file",
+      "agent_folder",
+      "agent_file"
     ]
   }
 }
