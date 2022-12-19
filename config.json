@@ -6,7 +6,7 @@
     "images"
   ],
   "description": "Images with corresponding annotations",
-  "docker_image": "supervisely/base-py-sdk:6.68.1",
+  "docker_image": "supervisely/base-py-sdk:6.68.54",
   "main_script": "src/main.py",
   "task_location": "workspace_tasks",
   "icon": "https://i.imgur.com/lmbzQd0.png",
