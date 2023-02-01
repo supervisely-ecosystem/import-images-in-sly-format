@@ -36,6 +36,7 @@ class MyImport(sly.app.Import):
             g.api, f"Uploading project: {project_name}", total_files
         )
         temp = os.path.join(g.STORAGE_DIR, project_name)
+        sly.logger.info(f"7777777777777777777777       {temp}")
         sly.upload_project(
             dir=temp,
             api=g.api,
