@@ -30,6 +30,7 @@ def get_progress_cb(
 def download_data_from_team_files(api: sly.Api, save_path: str, context: sly.app.Import.Context) -> str:
     """Download data from remote directory in Team Files."""
     project_path = None
+    sly.logger.info(f"7777777777777777777777777777777777777777777777^   {context.path}")
     IS_ON_AGENT = api.file.is_on_agent(context.path)
     if context.is_directory is True:
         if IS_ON_AGENT:
