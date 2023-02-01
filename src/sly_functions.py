@@ -31,13 +31,12 @@ def download_data_from_team_files(api: sly.Api, save_path: str, context: sly.app
     """Download data from remote directory in Team Files."""
     project_path = None
     IS_ON_AGENT = api.file.is_on_agent(context.path)
-    if IS_ON_AGENT:
-            agent_id, cur_files_path = api.file.parse_agent_id_and_path(context.path)
-    else:
-        cur_files_path = context.path
-    remote_path = context.path
-    
     if context.is_directory is True:
+        if IS_ON_AGENT:
+            agent_id, cur_files_path = api.file.parse_agent_id_and_path(context.path)
+        else:
+            cur_files_path = context.path
+        remote_path = context.path
         project_path = os.path.join(
             save_path, os.path.basename(os.path.normpath(cur_files_path))
         )
@@ -56,6 +55,11 @@ def download_data_from_team_files(api: sly.Api, save_path: str, context: sly.app
         )
 
     elif context.is_directory is False:
+        if IS_ON_AGENT:
+            agent_id, cur_files_path = api.file.parse_agent_id_and_path(context.path)
+        else:
+            cur_files_path = context.path
+        remote_path = context.path
         save_archive_path = os.path.join(save_path, get_file_name_with_ext(cur_files_path))
         sizeb = api.file.get_info_by_path(context.team_id, remote_path).sizeb
         progress_cb = get_progress_cb(
