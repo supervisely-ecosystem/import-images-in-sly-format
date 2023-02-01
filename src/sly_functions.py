@@ -6,9 +6,7 @@ from typing import Callable
 import supervisely as sly
 from supervisely.io.fs import get_file_name_with_ext, silent_remove
 
-
-INPUT_DIR: str = os.environ.get("modal.state.slyFolder", None)
-INPUT_FILE: str = os.environ.get("modal.state.slyFile", None)
+import sly_globals as g
 
 
 def update_progress(count, api: sly.Api, progress: sly.Progress) -> None:
@@ -33,19 +31,13 @@ def get_progress_cb(
 
 def download_data_from_team_files(api: sly.Api, save_path: str, team_id: int) -> str:
     """Download data from remote directory in Team Files."""
-    if INPUT_DIR:
-        IS_ON_AGENT = api.file.is_on_agent(INPUT_DIR)
-    else:
-        IS_ON_AGENT = api.file.is_on_agent(INPUT_FILE)
-
     project_path = None
-
-    if INPUT_DIR is not None:
-        if IS_ON_AGENT:
-            agent_id, cur_files_path = api.file.parse_agent_id_and_path(INPUT_DIR)
+    if g.INPUT_DIR is not None:
+        if g.IS_ON_AGENT:
+            agent_id, cur_files_path = api.file.parse_agent_id_and_path(g.INPUT_DIR)
         else:
-            cur_files_path = INPUT_DIR
-        remote_path = INPUT_DIR
+            cur_files_path = g.INPUT_DIR
+        remote_path = g.INPUT_DIR
         project_path = os.path.join(
             save_path, os.path.basename(os.path.normpath(cur_files_path))
         )
@@ -63,12 +55,12 @@ def download_data_from_team_files(api: sly.Api, save_path: str, team_id: int) ->
             progress_cb=progress_cb,
         )
 
-    elif INPUT_FILE is not None:
-        if IS_ON_AGENT:
-            agent_id, cur_files_path = api.file.parse_agent_id_and_path(INPUT_FILE)
+    elif g.INPUT_FILE is not None:
+        if g.IS_ON_AGENT:
+            agent_id, cur_files_path = api.file.parse_agent_id_and_path(g.INPUT_FILE)
         else:
-            cur_files_path = INPUT_FILE
-        remote_path = INPUT_FILE
+            cur_files_path = g.INPUT_FILE
+        remote_path = g.INPUT_FILE
         save_archive_path = os.path.join(save_path, get_file_name_with_ext(cur_files_path))
         sizeb = api.file.get_info_by_path(team_id, remote_path).sizeb
         progress_cb = get_progress_cb(
@@ -86,7 +78,7 @@ def download_data_from_team_files(api: sly.Api, save_path: str, team_id: int) ->
         shutil.unpack_archive(save_archive_path, save_path)
         silent_remove(save_archive_path)
         if len(os.listdir(save_path)) > 1:
-            sly.logger.error(
+            g.my_app.logger.error(
                 "There must be only 1 project directory in the archive"
             )
             raise Exception("There must be only 1 project directory in the archive")
