@@ -1,44 +1,76 @@
 import os
-
+import shutil
+import functools
 import supervisely as sly
+from supervisely.io.fs import mkdir
+from supervisely.io.fs import silent_remove
+from supervisely.io.fs import mkdir
+from typing import Callable
 
-import sly_functions as f
-import sly_globals as g
+from dotenv import load_dotenv
 
-
-@g.my_app.callback("import-images-project")
-@sly.timeit
-def import_images_project(
-        api: sly.Api, task_id: int, context: dict, state: dict, app_logger
-) -> None:
-    project_dir = f.download_data_from_team_files(
-        api=api, task_id=task_id, save_path=g.STORAGE_DIR
-    )
-    project_name = os.path.basename(project_dir)
-
-    files = []
-    for r, d, fs in os.walk(project_dir):
-        files.extend(os.path.join(r, file) for file in fs)
-    total_files = len(files) - 2
-    progress_project_cb = f.get_progress_cb(
-        api, task_id, f"Uploading project: {project_name}", total_files
-    )
-    sly.upload_project(
-        dir=project_dir,
-        api=api,
-        workspace_id=g.WORKSPACE_ID,
-        project_name=project_name,
-        progress_cb=progress_project_cb,
-    )
-    g.my_app.stop()
+# for convenient debug, has no effect in production
+if sly.is_development():
+    load_dotenv("local.env")
+    load_dotenv(os.path.expanduser("~/supervisely.env"))
 
 
-def main():
-    sly.logger.info(
-        "Script arguments", extra={"TEAM_ID": g.TEAM_ID, "WORKSPACE_ID": g.WORKSPACE_ID}
-    )
-    g.my_app.run(initial_events=[{"command": "import-images-project"}])
+api = sly.Api.from_env()
+
+STORAGE_DIR: str = sly.app.get_data_dir()
+mkdir(STORAGE_DIR, True)
 
 
-if __name__ == "__main__":
-    sly.main_wrapper("main", main)
+def update_progress(count, api: sly.Api, progress: sly.Progress) -> None:
+    count = min(count, progress.total - progress.current)
+    progress.iters_done(count)
+    if progress.need_report():
+        progress.report_progress()
+
+
+def get_progress_cb(
+    api: sly.Api,
+    message: str,
+    total: int,
+    is_size: bool = False,
+    func: Callable = update_progress,
+) -> functools.partial:
+    progress = sly.Progress(message, total, is_size=is_size)
+    progress_cb = functools.partial(func, api=api, progress=progress)
+    progress_cb(0)
+    return progress_cb
+
+
+class MyImport(sly.app.Import):
+
+    def process(self, context: sly.app.Import.Context):
+
+        project_dir = context.path
+        if context.is_directory is False:
+            shutil.unpack_archive(project_dir, STORAGE_DIR)
+            silent_remove(project_dir)
+            project_name = os.listdir(STORAGE_DIR)[0]
+            if len(os.listdir(STORAGE_DIR)) > 1:
+                raise Exception("There must be only 1 project directory in the archive")
+            project_dir = os.path.join(STORAGE_DIR, project_name)
+        else:
+            project_name = os.path.basename(project_dir)
+
+        files = []
+        for r, d, fs in os.walk(project_dir):
+            files.extend(os.path.join(r, file) for file in fs)
+        total_files = len(files) - 2
+        progress_project_cb = get_progress_cb(
+            api, f"Uploading project: {project_name}", total_files
+        )
+        
+        sly.upload_project(
+            dir=project_dir,
+            api=api,
+            workspace_id=context.workspace_id,
+            project_name=project_name,
+            progress_cb=progress_project_cb,
+        )
+
+app = MyImport()
+app.run()
