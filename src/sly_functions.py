@@ -6,8 +6,6 @@ from typing import Callable
 import supervisely as sly
 from supervisely.io.fs import get_file_name_with_ext, silent_remove
 
-import sly_globals as g
-
 
 def update_progress(count, api: sly.Api, progress: sly.Progress) -> None:
     count = min(count, progress.total - progress.current)
