@@ -25,7 +25,7 @@ class MyImport(sly.app.Import):
 
     def process(self, context: sly.app.Import.Context):
 
-        project_dir = f.download_data_from_team_files(api=api, save_path=STORAGE_DIR, context=context)
+        project_dir = f.download_data_from_team_files(api=api, save_path=STORAGE_DIR, team_id=context.team_id)
         project_name = os.path.basename(project_dir)
 
         files = []
