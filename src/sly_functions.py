@@ -41,6 +41,9 @@ def download_data_from_team_files(api: sly.Api, save_path: str, team_id: int) ->
         project_path = os.path.join(
             save_path, os.path.basename(os.path.normpath(cur_files_path))
         )
+        sly.logger.info(f"7777777 remote_path 777777777777777:   {remote_path}")
+        sly.logger.info(f"77777777 project_path  77777777777777:   {project_path}")
+        sly.logger.info(f"7777777777777777777777:   {os.listdir(project_path)}")
         sizeb = api.file.get_directory_size(team_id, remote_path)
         progress_cb = get_progress_cb(
             api=api,
