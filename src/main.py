@@ -35,8 +35,9 @@ class MyImport(sly.app.Import):
         progress_project_cb = f.get_progress_cb(
             g.api, f"Uploading project: {project_name}", total_files
         )
+        temp = os.path.join(g.STORAGE_DIR, project_name)
         sly.upload_project(
-            dir=project_dir,
+            dir=temp,
             api=g.api,
             workspace_id=context.workspace_id,
             project_name=project_name,
