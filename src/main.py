@@ -19,6 +19,8 @@ STORAGE_DIR = sly.app.get_data_dir()
 mkdir(STORAGE_DIR, True)
 
 
+
+
 class MyImport(sly.app.Import):
 
     def process(self, context: sly.app.Import.Context):

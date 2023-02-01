@@ -6,6 +6,9 @@ from typing import Callable
 import supervisely as sly
 from supervisely.io.fs import get_file_name_with_ext, silent_remove
 
+INPUT_DIR: str = os.environ.get("modal.state.slyFolder", None)
+INPUT_FILE: str = os.environ.get("modal.state.slyFile", None)
+
 
 def update_progress(count, api: sly.Api, progress: sly.Progress) -> None:
     count = min(count, progress.total - progress.current)
@@ -31,6 +34,8 @@ def download_data_from_team_files(api: sly.Api, save_path: str, context: sly.app
     """Download data from remote directory in Team Files."""
     project_path = None
     sly.logger.info(f"7777777777777777777777777777777777777777777777^   {context.path}")
+    sly.logger.info(f"7777777777777777777777777777777777777777777777^   {INPUT_DIR}")
+    sly.logger.info(f"7777777777777777777777777777777777777777777777^   {INPUT_FILE}")
     IS_ON_AGENT = api.file.is_on_agent(context.path)
     if context.is_directory is True:
         if IS_ON_AGENT:
