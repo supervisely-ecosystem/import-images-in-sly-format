@@ -9,7 +9,7 @@ from supervisely.io.fs import get_file_name_with_ext, silent_remove
 import sly_globals as g
 
 
-def update_progress(count, api: sly.Api, task_id: int, progress: sly.Progress) -> None:
+def update_progress(count, api: sly.Api, progress: sly.Progress) -> None:
     count = min(count, progress.total - progress.current)
     progress.iters_done(count)
     if progress.need_report():
@@ -18,62 +18,56 @@ def update_progress(count, api: sly.Api, task_id: int, progress: sly.Progress) -
 
 def get_progress_cb(
     api: sly.Api,
-    task_id: int,
     message: str,
     total: int,
     is_size: bool = False,
     func: Callable = update_progress,
 ) -> functools.partial:
     progress = sly.Progress(message, total, is_size=is_size)
-    progress_cb = functools.partial(func, api=api, task_id=task_id, progress=progress)
+    progress_cb = functools.partial(func, api=api, progress=progress)
     progress_cb(0)
     return progress_cb
 
 
-def download_data_from_team_files(api: sly.Api, task_id: int, save_path: str) -> str:
+def download_data_from_team_files(api: sly.Api, save_path: str, context: sly.app.Import.Context) -> str:
     """Download data from remote directory in Team Files."""
     project_path = None
-    if g.INPUT_DIR is not None:
-        if g.IS_ON_AGENT:
-            agent_id, cur_files_path = api.file.parse_agent_id_and_path(g.INPUT_DIR)
-        else:
-            cur_files_path = g.INPUT_DIR
-        remote_path = g.INPUT_DIR
+    IS_ON_AGENT = api.file.is_on_agent(context.path)
+    if IS_ON_AGENT:
+            agent_id, cur_files_path = api.file.parse_agent_id_and_path(context.path)
+    else:
+        cur_files_path = context.path
+    remote_path = context.path
+    
+    if context.is_directory is True:
         project_path = os.path.join(
             save_path, os.path.basename(os.path.normpath(cur_files_path))
         )
-        sizeb = api.file.get_directory_size(g.TEAM_ID, remote_path)
+        sizeb = api.file.get_directory_size(context.team_id, remote_path)
         progress_cb = get_progress_cb(
             api=api,
-            task_id=task_id,
             message=f"Downloading {remote_path.lstrip('/').rstrip('/')}",
             total=sizeb,
             is_size=True,
         )
         api.file.download_directory(
-            team_id=g.TEAM_ID,
+            team_id=context.team_id,
             remote_path=remote_path,
             local_save_path=project_path,
             progress_cb=progress_cb,
         )
 
-    elif g.INPUT_FILE is not None:
-        if g.IS_ON_AGENT:
-            agent_id, cur_files_path = api.file.parse_agent_id_and_path(g.INPUT_FILE)
-        else:
-            cur_files_path = g.INPUT_FILE
-        remote_path = g.INPUT_FILE
+    elif context.is_directory is False:
         save_archive_path = os.path.join(save_path, get_file_name_with_ext(cur_files_path))
-        sizeb = api.file.get_info_by_path(g.TEAM_ID, remote_path).sizeb
+        sizeb = api.file.get_info_by_path(context.team_id, remote_path).sizeb
         progress_cb = get_progress_cb(
             api=api,
-            task_id=task_id,
             message=f"Downloading {remote_path.lstrip('/')}",
             total=sizeb,
             is_size=True,
         )
         api.file.download(
-            team_id=g.TEAM_ID,
+            team_id=context.team_id,
             remote_path=remote_path,
             local_save_path=save_archive_path,
             progress_cb=progress_cb,
@@ -81,7 +75,7 @@ def download_data_from_team_files(api: sly.Api, task_id: int, save_path: str) ->
         shutil.unpack_archive(save_archive_path, save_path)
         silent_remove(save_archive_path)
         if len(os.listdir(save_path)) > 1:
-            g.my_app.logger.error(
+            sly.logger.error(
                 "There must be only 1 project directory in the archive"
             )
             raise Exception("There must be only 1 project directory in the archive")
