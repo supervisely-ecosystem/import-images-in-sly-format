@@ -26,7 +26,10 @@ class MyImport(sly.app.Import):
         if context.is_directory is False:
             shutil.unpack_archive(project_dir, g.STORAGE_DIR)
             silent_remove(project_dir)
-        project_name = os.path.basename(project_dir)
+            project_name = os.listdir(g.STORAGE_DIR)[0]
+            project_dir = os.path.join(g.STORAGE_DIR, project_name)
+        else:
+            project_name = os.path.basename(project_dir)
 
         files = []
         for r, d, fs in os.walk(project_dir):
@@ -35,10 +38,9 @@ class MyImport(sly.app.Import):
         progress_project_cb = f.get_progress_cb(
             g.api, f"Uploading project: {project_name}", total_files
         )
-        temp = os.path.join(g.STORAGE_DIR, project_name)
-        sly.logger.info(f"7777777777777777777777       {os.listdir(g.STORAGE_DIR)}")
+        
         sly.upload_project(
-            dir=temp,
+            dir=project_dir,
             api=g.api,
             workspace_id=context.workspace_id,
             project_name=project_name,
