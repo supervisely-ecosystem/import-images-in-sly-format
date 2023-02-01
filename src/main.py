@@ -1,7 +1,8 @@
 import os
-
+import shutil
 import supervisely as sly
 from supervisely.io.fs import mkdir
+from supervisely.io.fs import get_file_name_with_ext, silent_remove
 
 from dotenv import load_dotenv
 
@@ -22,6 +23,9 @@ class MyImport(sly.app.Import):
 
         #project_dir = f.download_data_from_team_files(api=g.api, save_path=g.STORAGE_DIR, team_id=context.team_id)
         project_dir = context.path
+        if context.is_directory is False:
+            shutil.unpack_archive(project_dir, g.STORAGE_DIR)
+            silent_remove(project_dir)
         project_name = os.path.basename(project_dir)
 
         files = []
