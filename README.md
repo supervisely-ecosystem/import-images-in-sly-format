@@ -67,22 +67,22 @@ As a result we will get project `cats_vs_dogs_project` with 2 datasets named: `c
 
 **Step 1.** Add [Import images in Supervisely format](https://ecosystem.supervise.ly/apps/supervisely-ecosystem/import-images-in-sly-format) app to your team from Ecosystem
 
-<img data-key="sly-module-link" data-module-slug="supervisely-ecosystem/import-images-in-sly-format" src="https://i.imgur.com/Y6RcQPT.png" width="350px" style='padding-bottom: 10px'/>
+<img data-key="sly-module-link" data-module-slug="supervisely-ecosystem/import-images-in-sly-format" src="media/htr1.png" width="350px" style='padding-bottom: 10px'/>
 
 **Step 2.** Run the application from the context menu of the directory with images on Team Files page
 
-<img src="https://i.imgur.com/EStpQb5.png" width="80%" style='padding-top: 10px'>  
+<img src="media/htr2.png" width="80%" style='padding-top: 10px'>  
 
 **Step 3.** Press the Run button in the modal window
 
-<img src="https://i.imgur.com/p4ThxkI.png" width="80%" style='padding-top: 10px'>
+<img src="media/htr3.png" width="80%" style='padding-top: 10px'>
 
 **Step 4.** After running the application, you will be redirected to the Tasks page. Once application processing has finished, your project will become available. Click on the project name to open it.
 
-<img src="https://i.imgur.com/UGqGvi6.png" width="80%" style='padding-top: 10px'>
+<img src="media/htr4.png" width="80%" style='padding-top: 10px'>
 
 ### Demo
 Example of uploading images project with annotations to Supervisely:
-![](https://i.imgur.com/XHBmtQ9.gif)
+![](media/demo.gif)
 
 
