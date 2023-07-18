@@ -1,10 +1,11 @@
 import functools
 import os
+import requests
 import shutil
 from typing import Callable
 
 import supervisely as sly
-from supervisely.io.fs import get_file_name_with_ext, silent_remove
+from supervisely.io.fs import get_file_name_with_ext, silent_remove, file_exists, download, get_file_name
 
 import sly_globals as g
 
@@ -29,6 +30,18 @@ def get_progress_cb(
     progress_cb(0)
     return progress_cb
 
+
+def download_file_from_link(
+    link, file_name, archive_path, progress_message, app_logger
+):
+    response = requests.head(link, allow_redirects=True)
+    sizeb = int(response.headers.get("content-length", 0))
+    progress_cb = get_progress_cb(
+        g.api, g.TASK_ID, progress_message, sizeb, is_size=True
+    )
+    if not file_exists(archive_path):
+        download(link, archive_path, cache=g.my_app.cache, progress=progress_cb)
+        app_logger.info(f"{file_name} has been successfully downloaded")
 
 def download_data_from_team_files(api: sly.Api, task_id: int, save_path: str) -> str:
     """Download data from remote directory in Team Files."""
@@ -63,22 +76,38 @@ def download_data_from_team_files(api: sly.Api, task_id: int, save_path: str) ->
         else:
             cur_files_path = g.INPUT_FILE
         remote_path = g.INPUT_FILE
-        save_archive_path = os.path.join(save_path, get_file_name_with_ext(cur_files_path))
-        sizeb = api.file.get_info_by_path(g.TEAM_ID, remote_path).sizeb
-        progress_cb = get_progress_cb(
-            api=api,
-            task_id=task_id,
-            message=f"Downloading {remote_path.lstrip('/')}",
-            total=sizeb,
-            is_size=True,
-        )
-        api.file.download(
-            team_id=g.TEAM_ID,
-            remote_path=remote_path,
-            local_save_path=save_archive_path,
-            progress_cb=progress_cb,
-        )
-        shutil.unpack_archive(save_archive_path, save_path)
+        if not g.DS_NINJA_LINK:
+            save_archive_path = os.path.join(save_path, get_file_name_with_ext(cur_files_path))
+            sizeb = api.file.get_info_by_path(g.TEAM_ID, remote_path).sizeb
+            progress_cb = get_progress_cb(
+                api=api,
+                task_id=task_id,
+                message=f"Downloading {remote_path.lstrip('/')}",
+                total=sizeb,
+                is_size=True,
+            )
+        
+            api.file.download(
+                team_id=g.TEAM_ID,
+                remote_path=remote_path,
+                local_save_path=save_archive_path,
+                progress_cb=progress_cb,
+            )
+            shutil.unpack_archive(save_archive_path, save_path)
+            
+        else:
+            file_name = "my_project.tar"
+            proj_path = os.path.join(save_path, get_file_name(file_name))
+            save_archive_path = os.path.join(proj_path, file_name)
+            download_file_from_link(
+                link=remote_path, 
+                file_name=file_name,
+                archive_path=save_archive_path,
+                progress_message=f"Downloading dataset from Ninja",
+                app_logger=g.my_app.logger
+            )
+            shutil.unpack_archive(save_archive_path, proj_path)
+            
         silent_remove(save_archive_path)
         if len(os.listdir(save_path)) > 1:
             g.my_app.logger.error(
