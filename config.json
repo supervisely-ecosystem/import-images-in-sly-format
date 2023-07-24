@@ -1,27 +1,27 @@
 {
-  "name": "Import images in Supervisely format",
-  "type": "app",
-  "categories": [
-    "import",
-    "images"
-  ],
-  "description": "Images with corresponding annotations",
-  "docker_image": "supervisely/base-py-sdk:6.72.55",
-  "main_script": "src/main.py",
-  "task_location": "workspace_tasks",
-  "icon": "https://i.imgur.com/lmbzQd0.png",
-  "poster": "https://user-images.githubusercontent.com/48245050/182842725-14a68b5d-2eac-4bc8-ad70-979cb05eacbd.jpg",
-  "icon_cover": true,
-  "headless": true,
-  "min_agent_version": "6.7.4",
-  "min_instance_version": "6.5.46",
-  "context_menu": {
-    "context_category": "Import",
-    "target": [
-      "files_folder",
-      "files_file",
-      "agent_folder",
-      "agent_file"
-    ]
-  }
+    "name": "Import images in Supervisely format",
+    "type": "app",
+    "categories": [
+        "import",
+        "images"
+    ],
+    "description": "Images with corresponding annotations",
+    "docker_image": "supervisely/base-py-sdk:6.72.78",
+    "main_script": "src/main.py",
+    "task_location": "workspace_tasks",
+    "icon": "https://i.imgur.com/lmbzQd0.png",
+    "poster": "https://user-images.githubusercontent.com/48245050/182842725-14a68b5d-2eac-4bc8-ad70-979cb05eacbd.jpg",
+    "icon_cover": true,
+    "headless": true,
+    "min_agent_version": "6.7.4",
+    "min_instance_version": "6.5.46",
+    "context_menu": {
+        "context_category": "Import",
+        "target": [
+            "files_folder",
+            "files_file",
+            "agent_folder",
+            "agent_file"
+        ]
+    }
 }
