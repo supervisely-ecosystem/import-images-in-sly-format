@@ -33,6 +33,8 @@ def get_progress_cb(
 def download_data_from_team_files(api: sly.Api, task_id: int, save_path: str) -> str:
     """Download data from remote directory in Team Files."""
     if g.INPUT_DIR is not None:
+        sly.logger.debug(f"The app is working with directory {g.INPUT_DIR}.")
+
         if g.IS_ON_AGENT:
             agent_id, cur_files_path = api.file.parse_agent_id_and_path(g.INPUT_DIR)
         else:
@@ -57,6 +59,8 @@ def download_data_from_team_files(api: sly.Api, task_id: int, save_path: str) ->
         )
 
     elif g.INPUT_FILE is not None:
+        sly.logger.debug(f"The app is working with file {g.INPUT_FILE}.")
+
         if g.IS_ON_AGENT:
             agent_id, cur_files_path = api.file.parse_agent_id_and_path(g.INPUT_FILE)
         else:
