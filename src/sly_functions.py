@@ -63,7 +63,9 @@ def download_data_from_team_files(api: sly.Api, task_id: int, save_path: str) ->
         else:
             cur_files_path = g.INPUT_FILE
         remote_path = g.INPUT_FILE
-        save_archive_path = os.path.join(save_path, get_file_name_with_ext(cur_files_path))
+        save_archive_path = os.path.join(
+            save_path, get_file_name_with_ext(cur_files_path)
+        )
         sizeb = api.file.get_info_by_path(g.TEAM_ID, remote_path).sizeb
         progress_cb = get_progress_cb(
             api=api,
@@ -80,6 +82,11 @@ def download_data_from_team_files(api: sly.Api, task_id: int, save_path: str) ->
         )
         shutil.unpack_archive(save_archive_path, save_path)
         silent_remove(save_archive_path)
+
+        sly.logger.debug(
+            f"The archive was unpacked to {save_path}. List of files: {os.listdir(save_path)}"
+        )
+
         if len(os.listdir(save_path)) > 1:
             g.my_app.logger.error(
                 "There must be only 1 project directory in the archive"
