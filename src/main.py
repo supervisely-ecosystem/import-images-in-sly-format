@@ -14,7 +14,9 @@ def import_images_project(
     project_dir = f.download_data_from_team_files(
         api=api, task_id=task_id, save_path=g.STORAGE_DIR
     )
-    project_name = os.path.basename(project_dir)
+    project_name = os.path.basename(os.path.normpath(project_dir))
+
+    sly.logger.info(f"Project name: {project_name}, project dir: {project_dir}")
 
     files = []
     for r, d, fs in os.walk(project_dir):
