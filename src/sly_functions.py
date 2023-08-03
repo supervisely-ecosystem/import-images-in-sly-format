@@ -32,14 +32,13 @@ def get_progress_cb(
 
 def download_data_from_team_files(api: sly.Api, task_id: int, save_path: str) -> str:
     """Download data from remote directory in Team Files."""
-    project_path = None
     if g.INPUT_DIR is not None:
         if g.IS_ON_AGENT:
             agent_id, cur_files_path = api.file.parse_agent_id_and_path(g.INPUT_DIR)
         else:
             cur_files_path = g.INPUT_DIR
         remote_path = g.INPUT_DIR
-        project_path = os.path.join(
+        input_path = os.path.join(
             save_path, os.path.basename(os.path.normpath(cur_files_path))
         )
         sizeb = api.file.get_directory_size(g.TEAM_ID, remote_path)
@@ -53,7 +52,7 @@ def download_data_from_team_files(api: sly.Api, task_id: int, save_path: str) ->
         api.file.download_directory(
             team_id=g.TEAM_ID,
             remote_path=remote_path,
-            local_save_path=project_path,
+            local_save_path=input_path,
             progress_cb=progress_cb,
         )
 
@@ -82,14 +81,14 @@ def download_data_from_team_files(api: sly.Api, task_id: int, save_path: str) ->
             progress_cb=progress_cb,
         )
 
-        save_path = os.path.join(save_path, get_file_name(cur_files_path))
+        input_path = os.path.join(save_path, get_file_name(cur_files_path))
         shutil.unpack_archive(save_archive_path, save_path)
 
         sly.logger.debug(f"Unpacked archive {save_archive_path} to {save_path}.")
 
         silent_remove(save_archive_path)
 
-        project_path = find_project_path(save_path)
+    project_path = find_project_path(input_path)
     return project_path
 
 
