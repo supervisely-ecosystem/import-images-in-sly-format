@@ -83,16 +83,13 @@ def download_data_from_team_files(api: sly.Api, task_id: int, save_path: str) ->
         shutil.unpack_archive(save_archive_path, save_path)
         silent_remove(save_archive_path)
 
-        sly.logger.debug(
-            f"The archive was unpacked to {save_path}. List of files: {os.listdir(save_path)}"
-        )
-
-        if len(os.listdir(save_path)) > 1:
-            g.my_app.logger.error(
-                "There must be only 1 project directory in the archive"
-            )
-            raise Exception("There must be only 1 project directory in the archive")
-
-        project_name = os.listdir(save_path)[0]
-        project_path = os.path.join(save_path, project_name)
+        project_path = find_project_path(save_path)
     return project_path
+
+
+def find_project_path(input_path):
+    input_files = sly.fs.list_dir_recursively(input_path)
+    for input_file in input_files:
+        if sly.fs.get_file_name_with_ext(input_file) == "meta.json":
+            parent_dir = os.path.dirname(input_file)
+            return os.path.join(input_path, parent_dir)
