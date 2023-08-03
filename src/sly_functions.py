@@ -86,9 +86,9 @@ def download_data_from_team_files(api: sly.Api, task_id: int, save_path: str) ->
         )
 
         input_path = os.path.join(save_path, get_file_name(cur_files_path))
-        shutil.unpack_archive(save_archive_path, save_path)
+        shutil.unpack_archive(save_archive_path, input_path)
 
-        sly.logger.debug(f"Unpacked archive {save_archive_path} to {save_path}.")
+        sly.logger.debug(f"Unpacked archive {save_archive_path} to {input_path}.")
 
         silent_remove(save_archive_path)
 
@@ -107,3 +107,7 @@ def find_project_path(input_path):
 
             sly.logger.debug(f"Found project path: {project_path}.")
             return project_path
+
+    sly.logger.warning(
+        f"Project path not found in any subdirectory of input path: {input_path}."
+    )
