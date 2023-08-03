@@ -9,12 +9,14 @@ import sly_globals as g
 @g.my_app.callback("import-images-project")
 @sly.timeit
 def import_images_project(
-        api: sly.Api, task_id: int, context: dict, state: dict, app_logger
+    api: sly.Api, task_id: int, context: dict, state: dict, app_logger
 ) -> None:
     project_dir = f.download_data_from_team_files(
         api=api, task_id=task_id, save_path=g.STORAGE_DIR
     )
-    project_name = os.path.basename(project_dir)
+    project_name = os.path.basename(os.path.normpath(project_dir))
+
+    sly.logger.info(f"Project name: {project_name}, project dir: {project_dir}")
 
     files = []
     for r, d, fs in os.walk(project_dir):

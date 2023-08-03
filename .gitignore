@@ -3,3 +3,5 @@ secret_debug.env
 .idea
 .vscode
 venv
+.venv
+__pycache__/
