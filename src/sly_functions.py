@@ -88,8 +88,13 @@ def download_data_from_team_files(api: sly.Api, task_id: int, save_path: str) ->
 
 
 def find_project_path(input_path):
+    sly.logger.debug(f"Trying to find project path in {input_path}.")
+
     input_files = sly.fs.list_dir_recursively(input_path)
     for input_file in input_files:
         if sly.fs.get_file_name_with_ext(input_file) == "meta.json":
             parent_dir = os.path.dirname(input_file)
-            return os.path.join(input_path, parent_dir)
+            project_path = os.path.join(input_path, parent_dir)
+
+            sly.logger.debug(f"Found project path: {project_path}.")
+            return project_path
