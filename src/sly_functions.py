@@ -4,7 +4,7 @@ import shutil
 from typing import Callable
 
 import supervisely as sly
-from supervisely.io.fs import get_file_name_with_ext, silent_remove
+from supervisely.io.fs import get_file_name_with_ext, silent_remove, get_file_name
 
 import sly_globals as g
 
@@ -63,6 +63,7 @@ def download_data_from_team_files(api: sly.Api, task_id: int, save_path: str) ->
         else:
             cur_files_path = g.INPUT_FILE
         remote_path = g.INPUT_FILE
+
         save_archive_path = os.path.join(
             save_path, get_file_name_with_ext(cur_files_path)
         )
@@ -80,6 +81,8 @@ def download_data_from_team_files(api: sly.Api, task_id: int, save_path: str) ->
             local_save_path=save_archive_path,
             progress_cb=progress_cb,
         )
+
+        save_path = os.path.join(save_path, get_file_name(cur_files_path))
         shutil.unpack_archive(save_archive_path, save_path)
         silent_remove(save_archive_path)
 
@@ -92,7 +95,7 @@ def find_project_path(input_path):
 
     input_files = sly.fs.list_dir_recursively(input_path)
     for input_file in input_files:
-        if sly.fs.get_file_name_with_ext(input_file) == "meta.json":
+        if get_file_name_with_ext(input_file) == "meta.json":
             parent_dir = os.path.dirname(input_file)
             project_path = os.path.join(input_path, parent_dir)
 
