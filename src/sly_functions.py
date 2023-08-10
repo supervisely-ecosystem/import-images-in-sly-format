@@ -100,5 +100,7 @@ def download_data_from_team_files(api: sly.Api, task_id: int, save_path: str) ->
 
         silent_remove(save_archive_path)
 
-    project_dirs = sly.project.project.find_project_dirs(input_path)
+    project_dirs = [
+        project_dir for project_dir in sly.project.project.find_project_dirs(input_path)
+    ]
     return project_dirs
