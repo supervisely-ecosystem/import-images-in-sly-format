@@ -20,7 +20,7 @@
 
 # Overview
 
-Import images in [Supervisely format](https://docs.supervise.ly/data-organization/00_ann_format_navi) with annotations. Supported extensions: `.jpg`, `.jpeg`, `.mpo`, `.bmp`, `.png`, `.webp`.
+Import images in [Supervisely format](https://docs.supervise.ly/data-organization/00_ann_format_navi) with annotations. Supported extensions: `.jpg`, `.jpeg`, `.mpo`, `.bmp`, `.png`, `.webp` and `.tiff`.
 
 🗄️ Starting from version `1.3.12` the application supports the import of multiple projects at once. Each project should be placed in a separate directory with the correct structure (see below).
 
