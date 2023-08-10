@@ -15,6 +15,9 @@ def import_images_project(
         api=api, task_id=task_id, save_path=g.STORAGE_DIR
     )
 
+    if len(project_dirs) == 0:
+        raise FileNotFoundError(f"No valid projects found in the given directory {g.INPUT_DIR}.")
+
     sly.logger.info(
         f"Found {len(project_dirs)} valid projects in the given directory. "
         f"Paths to the projects: {project_dirs}."
