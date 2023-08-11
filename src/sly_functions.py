@@ -33,10 +33,11 @@ def get_progress_cb(
 def download_data_from_team_files(api: sly.Api, task_id: int, save_path: str) -> str:
     """Download data from remote directory in Team Files."""
     if g.INPUT_DIR:
-        if sly.fs.get_file_ext(g.INPUT_DIR) in [".zip", ".tar"]:
+        listdir = api.file.listdir(g.TEAM_ID, g.INPUT_DIR)
+        if len(listdir) == 1 and sly.fs.get_file_ext(listdir[0]) in [".zip", ".tar"]:
             sly.logger.info("Folder mode is selected, but archive file is uploaded.")
             sly.logger.info("Switching to file mode.")
-            g.INPUT_DIR, g.INPUT_FILE = None, g.INPUT_DIR
+            g.INPUT_DIR, g.INPUT_FILE = None, os.path.join(g.INPUT_DIR, listdir[0])
     elif g.INPUT_FILE:
         if sly.fs.get_file_ext(g.INPUT_FILE) not in [".zip", ".tar"]:
             parent_dir, _ = os.path.split(g.INPUT_FILE)
