@@ -1,21 +1,12 @@
 import os
-import sys
-from pathlib import Path
-
 import supervisely as sly
-from supervisely.app.v1.app_service import AppService
+from dotenv import load_dotenv
 from supervisely.io.fs import mkdir
+from supervisely.app.v1.app_service import AppService
 
-root_source_dir = str(Path(sys.argv[0]).parents[1])
-print(f"App source directory: {root_source_dir}")
-sys.path.append(root_source_dir)
-
-# only for convenient debug
-# from dotenv import load_dotenv
-# debug_env_path = os.path.join(root_source_dir, "debug.env")
-# secret_debug_env_path = os.path.join(root_source_dir, "secret_debug.env")
-# load_dotenv(debug_env_path)
-# load_dotenv(secret_debug_env_path, override=True)
+if sly.is_development():
+    load_dotenv("local.env")
+    load_dotenv(os.path.expanduser("~/supervisely.env"))
 
 
 api: sly.Api = sly.Api.from_env()
@@ -27,12 +18,18 @@ TASK_ID = int(os.environ["TASK_ID"])
 
 INPUT_DIR: str = os.environ.get("modal.state.slyFolder", None)
 INPUT_FILE: str = os.environ.get("modal.state.slyFile", None)
+EXTERNAL_LINK: str = os.environ.get("modal.state.slyArchiveUrl", None)
+PROJECT_NAME: str = os.environ.get("modal.state.slyProjectName", None)
+if EXTERNAL_LINK is not None:
+    if not (EXTERNAL_LINK.startswith("https://") or EXTERNAL_LINK.startswith("http://")):
+        raise ValueError("The link must start with 'https://' or 'http://'")
 
-sly.logger.debug(f"INPUT_DIR: {INPUT_DIR}, INPUT_FILE: {INPUT_FILE}")
+
+sly.logger.debug(f"INPUT_DIR: {INPUT_DIR}, INPUT_FILE: {INPUT_FILE}, EXTERNAL_LINK=f{EXTERNAL_LINK}")
 
 if INPUT_DIR:
-    IS_ON_AGENT = api.file.is_on_agent(INPUT_DIR)
-else:
+    IS_ON_AGENT = api.file.is_on_agent(INPUT_DIR)    
+elif INPUT_FILE:
     IS_ON_AGENT = api.file.is_on_agent(INPUT_FILE)
 
 STORAGE_DIR: str = my_app.data_dir
