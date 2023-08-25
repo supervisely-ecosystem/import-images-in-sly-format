@@ -11,7 +11,7 @@ import sly_globals as g
 def import_images_project(
     api: sly.Api, task_id: int, context: dict, state: dict, app_logger
 ) -> None:
-    project_dirs = f.download_data_from_team_files(
+    project_dirs = f.download_data(
         api=api, task_id=task_id, save_path=g.STORAGE_DIR
     )
 
@@ -24,7 +24,10 @@ def import_images_project(
     )
 
     for project_dir in project_dirs:
-        project_name = os.path.basename(os.path.normpath(project_dir))
+        if g.PROJECT_NAME is None:
+            project_name = os.path.basename(os.path.normpath(project_dir))
+        else:
+            project_name = g.PROJECT_NAME
 
         sly.logger.info(f"Working with project '{project_name}' from path '{project_dir}'.")
 

@@ -1,10 +1,11 @@
 import functools
 import os
 import shutil
+import requests
 from typing import Callable, List
 
 import supervisely as sly
-from supervisely.io.fs import get_file_name_with_ext, silent_remove, get_file_name
+from supervisely.io.fs import get_file_name_with_ext, silent_remove, get_file_name, file_exists, download, mkdir
 
 import sly_globals as g
 
@@ -29,9 +30,21 @@ def get_progress_cb(
     progress_cb(0)
     return progress_cb
 
+def download_file_from_link(
+    link, file_name, archive_path, progress_message, app_logger
+):
+    response = requests.head(link, allow_redirects=True)
+    sizeb = int(response.headers.get("content-length", 0))
+    progress_cb = get_progress_cb(
+        g.api, g.TASK_ID, progress_message, sizeb, is_size=True
+    )
+    if not file_exists(archive_path):
+        download(link, archive_path, cache=g.my_app.cache, progress=progress_cb)
+        app_logger.info(f"{file_name} has been successfully downloaded")
 
-def download_data_from_team_files(api: sly.Api, task_id: int, save_path: str) -> List[str]:
-    """Download data from team files and returns list of valid images project paths.
+def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
+    """
+    Download data and returns list of valid images project paths.
 
     :param api: Supervisely API object.
     :type api: sly.Api
@@ -40,7 +53,8 @@ def download_data_from_team_files(api: sly.Api, task_id: int, save_path: str) ->
     :param save_path: Path to save data.
     :type save_path: str
     :return: List of valid images project paths.
-    :rtype: List[str]"""
+    :rtype: List[str]
+    """
 
     if g.INPUT_DIR is not None:
         # If the app received a path to the directory in TeamFiles from environment variables.
@@ -95,9 +109,26 @@ def download_data_from_team_files(api: sly.Api, task_id: int, save_path: str) ->
 
         input_path = os.path.join(save_path, get_file_name(cur_files_path))
         shutil.unpack_archive(save_archive_path, input_path)
-
         sly.logger.debug(f"Unpacked archive {save_archive_path} to {input_path}.")
-
+        silent_remove(save_archive_path)
+    
+    elif g.EXTERNAL_LINK is not None:
+        remote_path = g.EXTERNAL_LINK
+        file_name = "my_project.tar"
+        proj_path = os.path.join(save_path, get_file_name(file_name))
+        if not os.path.exists(proj_path):
+            mkdir(proj_path, True)
+        save_archive_path = os.path.join(proj_path, file_name)
+        download_file_from_link(
+            link=remote_path, 
+            file_name=file_name,
+            archive_path=save_archive_path,
+            progress_message=f"Downloading archive from link",
+            app_logger=g.my_app.logger
+        )
+        input_path = os.path.join(save_path, get_file_name(proj_path))
+        shutil.unpack_archive(save_archive_path, input_path)
+        sly.logger.debug(f"Unpacked archive {save_archive_path} to {input_path}.")
         silent_remove(save_archive_path)
 
     project_dirs = [
