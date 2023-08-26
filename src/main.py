@@ -24,11 +24,7 @@ def import_images_project(
     )
 
     for project_dir in project_dirs:
-        if g.PROJECT_NAME is None:
-            project_name = os.path.basename(os.path.normpath(project_dir))
-        else:
-            project_name = g.PROJECT_NAME
-
+        project_name = os.path.basename(os.path.normpath(project_dir))
         sly.logger.info(f"Working with project '{project_name}' from path '{project_dir}'.")
 
         files = []
