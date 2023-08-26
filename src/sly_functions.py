@@ -114,7 +114,11 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
     
     elif g.EXTERNAL_LINK is not None:
         remote_path = g.EXTERNAL_LINK
-        file_name = "my_project.tar"
+        if g.PROJECT_NAME is not None and g.PROJECT_NAME != "":
+            file_name = f"{g.PROJECT_NAME}.tar"
+        else:
+            file_name = "my_project.tar"
+            
         proj_path = os.path.join(save_path, get_file_name(file_name))
         if not os.path.exists(proj_path):
             mkdir(proj_path, True)
