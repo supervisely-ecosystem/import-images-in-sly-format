@@ -134,4 +134,23 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
     project_dirs = [
         project_dir for project_dir in sly.project.project.find_project_dirs(input_path)
     ]
+
+    bad_proj_types = []
+    for r, d, fs in os.walk(input_path):
+        if "meta.json" in fs:
+            meta_json = sly.json.load_json_file(os.path.join(r, "meta.json"))
+            meta = sly.ProjectMeta.from_json(meta_json)
+            if meta.project_type != sly.ProjectType.IMAGES:
+                bad_proj_types.append(meta.project_type)
+
+    if len(project_dirs) == 0:
+        msg = f"No valid projects found in the given directory {input_path}."
+        if len(bad_proj_types) > 0:
+            msg += f"\nProjects with another types are found: {bad_proj_types}."
+        raise FileNotFoundError(msg)
+    elif len(bad_proj_types) > 0:
+        sly.logger.warn(
+            f"Found {len(bad_proj_types)} projects with another types: {bad_proj_types}."
+            f"Make sure that you are uploading only images projects."
+        )
     return project_dirs
