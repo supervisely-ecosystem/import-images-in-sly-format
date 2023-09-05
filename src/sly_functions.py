@@ -140,7 +140,7 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
         if "meta.json" in fs:
             meta_json = sly.json.load_json_file(os.path.join(r, "meta.json"))
             meta = sly.ProjectMeta.from_json(meta_json)
-            if meta.project_type != sly.ProjectType.IMAGES:
+            if meta.project_type != str(sly.ProjectType.IMAGES):
                 bad_proj_types.append(meta.project_type)
 
     if len(project_dirs) == 0:
