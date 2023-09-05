@@ -3,6 +3,7 @@ import os
 import shutil
 import requests
 from typing import Callable, List
+from collections import defaultdict
 
 import supervisely as sly
 from supervisely.io.fs import get_file_name_with_ext, silent_remove, get_file_name, file_exists, download, mkdir
@@ -135,22 +136,35 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
         project_dir for project_dir in sly.project.project.find_project_dirs(input_path)
     ]
 
-    bad_proj_types = []
-    for r, d, fs in os.walk(input_path):
-        if "meta.json" in fs:
-            meta_json = sly.json.load_json_file(os.path.join(r, "meta.json"))
+    bad_projs = defaultdict(int)
+    pr_cls_to_type = {
+        sly.VideoProject: "videos",
+        sly.VolumeProject: "volumes",
+        sly.PointcloudProject: "point_clouds",
+        sly.PointcloudEpisodeProject: "point_cloud_episodes",
+    }
+    for pr_cls in pr_cls_to_type.keys():
+        for dir in sly.project.project.find_project_dirs(input_path, pr_cls):
+            meta_json = sly.json.load_json_file(os.path.join(dir, "meta.json"))
             meta = sly.ProjectMeta.from_json(meta_json)
-            if meta.project_type != str(sly.ProjectType.IMAGES):
-                bad_proj_types.append(meta.project_type)
+            if str(meta.project_type) == pr_cls_to_type[pr_cls]:
+                bad_projs[str(meta.project_type)] += 1
+                bad_projs["total"] += 1
+
+    bad_proj_cnt = bad_projs["total"]
+    bad_proj_msg = " Projects with another types are found: "
+    for pr_type, cnt in bad_projs.items():
+        if pr_type != "total":
+            bad_proj_msg += f"{cnt} {pr_type}; "
 
     if len(project_dirs) == 0:
         msg = f"No valid projects found in the given directory {input_path}."
-        if len(bad_proj_types) > 0:
-            msg += f"\nProjects with another types are found: {bad_proj_types}."
+        if bad_proj_cnt > 0:
+            msg += bad_proj_msg
         raise FileNotFoundError(msg)
-    elif len(bad_proj_types) > 0:
+    elif bad_proj_cnt > 0:
         sly.logger.warn(
-            f"Found {len(bad_proj_types)} projects with another types: {bad_proj_types}."
+            f"{bad_proj_msg} "
             f"Make sure that you are uploading only images projects."
         )
     return project_dirs
