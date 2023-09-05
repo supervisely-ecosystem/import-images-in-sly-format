@@ -137,20 +137,30 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
     ]
 
     bad_projs = defaultdict(int)
-    pr_cls_to_type = {
-        sly.VideoProject: "videos",
-        sly.VolumeProject: "volumes",
-        sly.PointcloudProject: "point_clouds",
-        sly.PointcloudEpisodeProject: "point_cloud_episodes",
+    project_type_to_cls = {
+        "videos": sly.VideoProject,
+        "volumes": sly.VolumeProject,
+        "point_clouds": sly.PointcloudProject,
+        "point_cloud_episodes": sly.PointcloudEpisodeProject,
     }
-    for pr_cls in pr_cls_to_type.keys():
-        for dir in sly.project.project.find_project_dirs(input_path, pr_cls):
-            meta_json = sly.json.load_json_file(os.path.join(dir, "meta.json"))
-            meta = sly.ProjectMeta.from_json(meta_json)
-            if str(meta.project_type) == pr_cls_to_type[pr_cls]:
-                bad_projs[str(meta.project_type)] += 1
-                bad_projs["total"] += 1
-
+    bad_projs = defaultdict(int)
+    for r, d, fs in os.walk(input_path):
+        if "meta.json" in fs:
+            meta_json = sly.json.load_json_file(os.path.join(r, "meta.json"))
+            try:
+                meta = sly.ProjectMeta.from_json(meta_json)
+            except:
+                continue
+            if meta.project_type == str(sly.ProjectType.IMAGES):
+                continue
+            try:
+                pr_cls = project_type_to_cls[meta.project_type]
+                sly.read_single_project(r, pr_cls)
+            except:
+                continue
+            bad_projs[str(meta.project_type)] += 1
+            bad_projs["total"] += 1
+        
     bad_proj_cnt = bad_projs["total"]
     bad_proj_msg = " Projects with another types are found: "
     for pr_type, cnt in bad_projs.items():
