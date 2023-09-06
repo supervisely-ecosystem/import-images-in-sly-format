@@ -35,7 +35,8 @@ Import images in [Supervisely format](https://docs.supervise.ly/data-organizatio
 
 You can upload a directory or an archive. If you are uploading an archive, it must contain a single top-level directory.
 
-The directory name defines the project name. Subdirectories define dataset names.
+The directory name defines the project name. Subdirectories define dataset names.<br>
+ℹ️ You can download the archive with data example [here](https://github.com/supervisely-ecosystem/import-images-in-sly-format/files/12537201/robots_project.zip).
 
 Project directory example:
 
