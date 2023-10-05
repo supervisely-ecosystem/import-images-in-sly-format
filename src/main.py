@@ -1,6 +1,7 @@
 import os
 
 import supervisely as sly
+from supervisely.annotation.annotation import AnnotationJsonFields
 
 import sly_functions as f
 import sly_globals as g
@@ -66,8 +67,14 @@ def import_images_project(
                         "Will create an empty annotation file for this image."
                     )
                     ann = sly.Annotation.from_img_path(os.path.join(imgs_dir, img_name))
+                    ann_json = ann.to_json()
+
+                    # NOTE: remove after fixing mapping customBigData in annotation
+                    if AnnotationJsonFields.CUSTOM_DATA in ann_json.keys():
+                        del ann_json[AnnotationJsonFields.CUSTOM_DATA]
+
                     ann_name = img_name + g.ANN_EXT
-                    sly.json.dump_json_file(ann.to_json(), os.path.join(ann_dir, ann_name))
+                    sly.json.dump_json_file(ann_json, os.path.join(ann_dir, ann_name))
                 res_ann_names.append(ann_name)
                 files_cnt += 2
             unwanted_ann_names = list(set(raw_ann_names) - set(res_ann_names))
