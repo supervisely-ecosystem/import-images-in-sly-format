@@ -6,7 +6,6 @@ from typing import Callable, List
 from collections import defaultdict
 
 import supervisely as sly
-from supervisely.io.fs import dirs_filter
 from supervisely.io.fs import (
     get_file_name_with_ext,
     silent_remove,
@@ -148,7 +147,7 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
         )
         return meta_exists and datasets_exists and img_folders_exists
 
-    project_dirs = [project_dir for project_dir in dirs_filter(input_path, check_func)]
+    project_dirs = [project_dir for project_dir in sly.fs.dirs_filter(input_path, check_func)]
 
     bad_projs = defaultdict(int)
     project_type_to_cls = {
