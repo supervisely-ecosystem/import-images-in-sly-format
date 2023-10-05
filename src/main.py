@@ -105,13 +105,13 @@ def import_images_project(
             fails.append(project_name)
             sly.logger.warn(f"Project '{project_name}' uploading failed: {e}.")
 
-    if len(fails) == len(project_dirs):
-        raise Exception("No projects were uploaded. Check your input data.")
-    elif len(fails) > 0:
-        sly.logger.info(f"{len(project_dirs) - len(fails)} projects were uploaded successfully.")
+    success = len(project_dirs) - len(fails)
+    if success > 0:
+        sly.logger.info(
+            f"{success} project{'s' if success > 1 else ''} were uploaded successfully."
+        )
+    if len(fails) > 0:
         sly.logger.warn(f"Projects {fails} were not uploaded. Check your input data.")
-    else:
-        sly.logger.info("All projects uploaded successfully, the app will be stopped.")
 
     g.my_app.stop()
 
