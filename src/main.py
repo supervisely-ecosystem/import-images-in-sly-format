@@ -58,7 +58,7 @@ def import_images_project(
                         "Will create an empty annotation file for this image."
                     )
                     ann = sly.Annotation.from_img_path(os.path.join(imgs_dir, img_name))
-                    sly.json.dump_json_file(ann.to_json(), os.path.join(ann_dir, ann_name))
+                    sly.json.dump_json_file(ann.to_json(), os.path.join(ann_dir, f"{img_name}{g.ANN_EXT}"))
                 files_cnt += 2
 
         try:
