@@ -86,6 +86,7 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
             local_save_path=input_path,
             progress_cb=progress_cb,
         )
+        sly.fs.remove_junk_from_dir(input_path)
 
     elif g.INPUT_FILE is not None:
         # If the app received a path to the file in TeamFiles from environment variables.
@@ -114,7 +115,7 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
         )
 
         input_path = os.path.join(save_path, get_file_name(cur_files_path))
-        shutil.unpack_archive(save_archive_path, input_path)
+        sly.fs.unpack_archive(save_archive_path, input_path)
         sly.logger.debug(f"Unpacked archive {save_archive_path} to {input_path}.")
         silent_remove(save_archive_path)
 
@@ -133,7 +134,7 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
             app_logger=g.my_app.logger,
         )
         input_path = os.path.join(save_path, get_file_name(proj_path))
-        shutil.unpack_archive(save_archive_path, input_path)
+        sly.fs.unpack_archive(save_archive_path, input_path)
         sly.logger.debug(f"Unpacked archive {save_archive_path} to {input_path}.")
         silent_remove(save_archive_path)
 

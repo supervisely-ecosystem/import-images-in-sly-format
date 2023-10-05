@@ -41,10 +41,17 @@ def import_images_project(
         files_cnt = 0
         for dataset_dir in os.listdir(project_dir):
             dataset_path = os.path.join(project_dir, dataset_dir)
-            if not sly.fs.dir_exists(dataset_path):
-                continue
             imgs_dir = os.path.join(dataset_path, "img")
             ann_dir = os.path.join(dataset_path, "ann")
+            if not sly.fs.dir_exists(dataset_path):
+                continue
+            if (
+                len(os.listdir(dataset_path)) == 0
+                or not sly.fs.dir_exists(imgs_dir)
+                or len(os.listdir(imgs_dir)) == 0
+            ):
+                sly.fs.remove_dir(dataset_path)
+                continue
             if not sly.fs.dir_exists(ann_dir):
                 sly.fs.mkdir(ann_dir)
 
@@ -58,8 +65,16 @@ def import_images_project(
                         "Will create an empty annotation file for this image."
                     )
                     ann = sly.Annotation.from_img_path(os.path.join(imgs_dir, img_name))
-                    sly.json.dump_json_file(ann.to_json(), os.path.join(ann_dir, f"{img_name}{g.ANN_EXT}"))
+                    sly.json.dump_json_file(
+                        ann.to_json(), os.path.join(ann_dir, f"{img_name}{g.ANN_EXT}")
+                    )
                 files_cnt += 2
+        if files_cnt == 0:
+            sly.logger.warn(
+                f"Incorrect project structure for project '{project_name}'. Skipping..."
+            )
+            fails.append(project_name)
+            continue
 
         try:
             progress_project_cb = f.get_progress_cb(
