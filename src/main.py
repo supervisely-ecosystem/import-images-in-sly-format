@@ -57,6 +57,7 @@ def import_images_project(
 
             img_names = os.listdir(imgs_dir)
             raw_ann_names = os.listdir(ann_dir)
+            res_ann_names = []
             for img_name in img_names:
                 ann_name = _get_effective_ann_name(img_name, raw_ann_names)
                 if ann_name is None:
@@ -65,10 +66,18 @@ def import_images_project(
                         "Will create an empty annotation file for this image."
                     )
                     ann = sly.Annotation.from_img_path(os.path.join(imgs_dir, img_name))
-                    sly.json.dump_json_file(
-                        ann.to_json(), os.path.join(ann_dir, f"{img_name}{g.ANN_EXT}")
-                    )
+                    ann_name = img_name + g.ANN_EXT
+                    sly.json.dump_json_file(ann.to_json(), os.path.join(ann_dir, ann_name))
+                res_ann_names.append(ann_name)
                 files_cnt += 2
+            unwanted_ann_names = list(set(raw_ann_names) - set(res_ann_names))
+            if len(unwanted_ann_names) > 0:
+                sly.logger.warn(
+                    f"Found {len(unwanted_ann_names)} annotation files without corresponding images: {unwanted_ann_names}. "
+                )
+                for name in unwanted_ann_names:
+                    sly.fs.silent_remove(os.path.join(ann_dir, name))
+
         if files_cnt == 0:
             sly.logger.warn(
                 f"Incorrect project structure for project '{project_name}'. Skipping..."
