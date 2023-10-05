@@ -6,7 +6,15 @@ from typing import Callable, List
 from collections import defaultdict
 
 import supervisely as sly
-from supervisely.io.fs import get_file_name_with_ext, silent_remove, get_file_name, file_exists, download, mkdir
+from supervisely.io.fs import dirs_filter
+from supervisely.io.fs import (
+    get_file_name_with_ext,
+    silent_remove,
+    get_file_name,
+    file_exists,
+    download,
+    mkdir,
+)
 
 import sly_globals as g
 
@@ -31,17 +39,15 @@ def get_progress_cb(
     progress_cb(0)
     return progress_cb
 
-def download_file_from_link(
-    link, file_name, archive_path, progress_message, app_logger
-):
+
+def download_file_from_link(link, file_name, archive_path, progress_message, app_logger):
     response = requests.head(link, allow_redirects=True)
     sizeb = int(response.headers.get("content-length", 0))
-    progress_cb = get_progress_cb(
-        g.api, g.TASK_ID, progress_message, sizeb, is_size=True
-    )
+    progress_cb = get_progress_cb(g.api, g.TASK_ID, progress_message, sizeb, is_size=True)
     if not file_exists(archive_path):
         download(link, archive_path, cache=g.my_app.cache, progress=progress_cb)
         app_logger.info(f"{file_name} has been successfully downloaded")
+
 
 def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
     """
@@ -112,7 +118,7 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
         shutil.unpack_archive(save_archive_path, input_path)
         sly.logger.debug(f"Unpacked archive {save_archive_path} to {input_path}.")
         silent_remove(save_archive_path)
-    
+
     elif g.EXTERNAL_LINK is not None:
         remote_path = g.EXTERNAL_LINK
         file_name = "my_project.tar"
@@ -121,20 +127,28 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
             mkdir(proj_path, True)
         save_archive_path = os.path.join(proj_path, file_name)
         download_file_from_link(
-            link=remote_path, 
+            link=remote_path,
             file_name=file_name,
             archive_path=save_archive_path,
             progress_message=f"Downloading archive from link",
-            app_logger=g.my_app.logger
+            app_logger=g.my_app.logger,
         )
         input_path = os.path.join(save_path, get_file_name(proj_path))
         shutil.unpack_archive(save_archive_path, input_path)
         sly.logger.debug(f"Unpacked archive {save_archive_path} to {input_path}.")
         silent_remove(save_archive_path)
 
-    project_dirs = [
-        project_dir for project_dir in sly.project.project.find_project_dirs(input_path)
-    ]
+    def check_func(dir_path):
+        files = os.listdir(dir_path)
+        meta_exists = "meta.json" in files
+        datasets = [f for f in files if sly.fs.dir_exists(os.path.join(dir_path, f))]
+        datasets_exists = len(datasets) > 0
+        img_folders_exists = all(
+            [sly.fs.dir_exists(os.path.join(dir_path, dataset, "img")) for dataset in datasets]
+        )
+        return meta_exists and datasets_exists and img_folders_exists
+
+    project_dirs = [project_dir for project_dir in dirs_filter(input_path, check_func)]
 
     bad_projs = defaultdict(int)
     project_type_to_cls = {
@@ -144,6 +158,7 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
         "point_cloud_episodes": sly.PointcloudEpisodeProject,
     }
     bad_projs = defaultdict(int)
+    # search for projects with another types
     for r, d, fs in os.walk(input_path):
         if "meta.json" in fs:
             meta_json = sly.json.load_json_file(os.path.join(r, "meta.json"))
@@ -160,7 +175,7 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
                 continue
             bad_projs[str(meta.project_type)] += 1
             bad_projs["total"] += 1
-        
+
     bad_proj_cnt = bad_projs["total"]
     bad_proj_msg = " Projects with another types are found: "
     for pr_type, cnt in bad_projs.items():
@@ -174,7 +189,6 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
         raise FileNotFoundError(msg)
     elif bad_proj_cnt > 0:
         sly.logger.warn(
-            f"{bad_proj_msg} "
-            f"Make sure that you are uploading only images projects."
+            f"{bad_proj_msg}. Make sure that you are uploading only images projects."
         )
     return project_dirs
