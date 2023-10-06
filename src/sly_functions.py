@@ -1,12 +1,20 @@
 import functools
 import os
 import shutil
+from os.path import basename, dirname, normpath
 import requests
 from typing import Callable, List
 from collections import defaultdict
 
 import supervisely as sly
-from supervisely.io.fs import get_file_name_with_ext, silent_remove, get_file_name, file_exists, download, mkdir
+from supervisely.io.fs import (
+    get_file_name_with_ext,
+    silent_remove,
+    get_file_name,
+    file_exists,
+    download,
+    mkdir,
+)
 
 import sly_globals as g
 
@@ -31,17 +39,15 @@ def get_progress_cb(
     progress_cb(0)
     return progress_cb
 
-def download_file_from_link(
-    link, file_name, archive_path, progress_message, app_logger
-):
+
+def download_file_from_link(link, file_name, archive_path, progress_message, app_logger):
     response = requests.head(link, allow_redirects=True)
     sizeb = int(response.headers.get("content-length", 0))
-    progress_cb = get_progress_cb(
-        g.api, g.TASK_ID, progress_message, sizeb, is_size=True
-    )
+    progress_cb = get_progress_cb(g.api, g.TASK_ID, progress_message, sizeb, is_size=True)
     if not file_exists(archive_path):
         download(link, archive_path, cache=g.my_app.cache, progress=progress_cb)
         app_logger.info(f"{file_name} has been successfully downloaded")
+
 
 def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
     """
@@ -56,6 +62,46 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
     :return: List of valid images project paths.
     :rtype: List[str]
     """
+
+    if g.INPUT_DIR:
+        listdir = api.file.listdir(g.TEAM_ID, g.INPUT_DIR)
+        if len(listdir) == 1 and sly.fs.get_file_ext(listdir[0]) in [".zip", ".tar"]:
+            sly.logger.info(
+                "Folder mode is selected, but archive file is uploaded. Switching to file mode."
+            )
+            g.INPUT_DIR, g.INPUT_FILE = None, listdir[0]
+        elif len(listdir) > 1 and any(
+            sly.fs.get_file_ext(file) in [".zip", ".tar"] for file in listdir
+        ):
+            raise ValueError("Multiple archives are not supported.")
+        elif basename(normpath(g.INPUT_DIR)) in ["img", "ann"]:
+            if len(g.INPUT_DIR.strip("/").split("/")) > 2:
+                g.INPUT_DIR = dirname(dirname(normpath(g.INPUT_DIR)))
+            elif len(g.INPUT_DIR.strip("/").split("/")) > 1:
+                g.INPUT_DIR = dirname(normpath(g.INPUT_DIR))
+        elif any(basename(normpath(x)) in ["img", "ann"] for x in listdir):
+            parent_dir = dirname(normpath(g.INPUT_DIR))
+            if parent_dir != "/":
+                g.INPUT_DIR = parent_dir
+
+    if g.INPUT_FILE:
+        available_archive_formats = list(zip(*shutil.get_archive_formats()))[0]
+        file_ext = sly.fs.get_file_ext(g.INPUT_FILE)
+        if file_ext.lstrip(".") not in available_archive_formats:
+            sly.logger.info("File mode is selected, but uploaded file is not archive.")
+            if basename(normpath(g.INPUT_FILE)) == "meta.json":
+                g.INPUT_DIR, g.INPUT_FILE = dirname(g.INPUT_FILE), None
+            elif sly.image.is_valid_ext(file_ext) or file_ext == ".json":
+                parent_dir = dirname(normpath(g.INPUT_FILE))
+                listdir = api.file.listdir(g.TEAM_ID, parent_dir)
+                if basename(normpath(parent_dir)) in ["img", "ann"]:
+                    if len(parent_dir.strip("/").split("/")) > 2:
+                        parent_dir = dirname(dirname(normpath(parent_dir)))
+                    elif len(parent_dir.strip("/").split("/")) > 1:
+                        parent_dir = dirname(normpath(parent_dir))
+                if not parent_dir.endswith("/"):
+                    parent_dir += "/"
+                g.INPUT_DIR, g.INPUT_FILE = parent_dir, None
 
     if g.INPUT_DIR is not None:
         # If the app received a path to the directory in TeamFiles from environment variables.
@@ -81,6 +127,7 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
             local_save_path=input_path,
             progress_cb=progress_cb,
         )
+        sly.fs.remove_junk_from_dir(input_path)
 
     elif g.INPUT_FILE is not None:
         # If the app received a path to the file in TeamFiles from environment variables.
@@ -109,10 +156,10 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
         )
 
         input_path = os.path.join(save_path, get_file_name(cur_files_path))
-        shutil.unpack_archive(save_archive_path, input_path)
+        sly.fs.unpack_archive(save_archive_path, input_path)
         sly.logger.debug(f"Unpacked archive {save_archive_path} to {input_path}.")
         silent_remove(save_archive_path)
-    
+
     elif g.EXTERNAL_LINK is not None:
         remote_path = g.EXTERNAL_LINK
         file_name = "my_project.tar"
@@ -121,20 +168,34 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
             mkdir(proj_path, True)
         save_archive_path = os.path.join(proj_path, file_name)
         download_file_from_link(
-            link=remote_path, 
+            link=remote_path,
             file_name=file_name,
             archive_path=save_archive_path,
             progress_message=f"Downloading archive from link",
-            app_logger=g.my_app.logger
+            app_logger=g.my_app.logger,
         )
         input_path = os.path.join(save_path, get_file_name(proj_path))
-        shutil.unpack_archive(save_archive_path, input_path)
+        sly.fs.unpack_archive(save_archive_path, input_path)
         sly.logger.debug(f"Unpacked archive {save_archive_path} to {input_path}.")
         silent_remove(save_archive_path)
 
-    project_dirs = [
-        project_dir for project_dir in sly.project.project.find_project_dirs(input_path)
-    ]
+    def search_projects(dir_path):
+        files = os.listdir(dir_path)
+        meta_exists = "meta.json" in files
+        datasets = [f for f in files if sly.fs.dir_exists(os.path.join(dir_path, f))]
+        datasets_exists = len(datasets) > 0
+        return meta_exists and datasets_exists
+
+    def search_images_dir(dir_path):
+        listdir = os.listdir(dir_path)
+        is_img_dir = all(sly.fs.get_file_ext(f) in sly.image.SUPPORTED_IMG_EXTS for f in listdir)
+        return is_img_dir
+
+    project_dirs = [project_dir for project_dir in sly.fs.dirs_filter(input_path, search_projects)]
+
+    only_images = []
+    if len(project_dirs) == 0:
+        only_images = [img_dir for img_dir in sly.fs.dirs_filter(input_path, search_images_dir)]
 
     bad_projs = defaultdict(int)
     project_type_to_cls = {
@@ -144,6 +205,7 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
         "point_cloud_episodes": sly.PointcloudEpisodeProject,
     }
     bad_projs = defaultdict(int)
+    # search for projects with another types
     for r, d, fs in os.walk(input_path):
         if "meta.json" in fs:
             meta_json = sly.json.load_json_file(os.path.join(r, "meta.json"))
@@ -160,21 +222,13 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
                 continue
             bad_projs[str(meta.project_type)] += 1
             bad_projs["total"] += 1
-        
+
     bad_proj_cnt = bad_projs["total"]
-    bad_proj_msg = " Projects with another types are found: "
+    bad_proj_msg = "Projects with another types are found: "
     for pr_type, cnt in bad_projs.items():
         if pr_type != "total":
             bad_proj_msg += f"{cnt} {pr_type}; "
 
-    if len(project_dirs) == 0:
-        msg = f"No valid projects found in the given directory {input_path}."
-        if bad_proj_cnt > 0:
-            msg += bad_proj_msg
-        raise FileNotFoundError(msg)
-    elif bad_proj_cnt > 0:
-        sly.logger.warn(
-            f"{bad_proj_msg} "
-            f"Make sure that you are uploading only images projects."
-        )
-    return project_dirs
+    if bad_proj_cnt > 0:
+        sly.logger.warn(f"{bad_proj_msg}. Make sure that you are uploading only images projects.")
+    return project_dirs, only_images

@@ -25,12 +25,16 @@ if EXTERNAL_LINK is not None:
         raise ValueError("The link must start with 'https://' or 'http://'")
 
 
-sly.logger.debug(f"INPUT_DIR: {INPUT_DIR}, INPUT_FILE: {INPUT_FILE}, EXTERNAL_LINK=f{EXTERNAL_LINK}")
+sly.logger.debug(
+    f"INPUT_DIR: {INPUT_DIR}, INPUT_FILE: {INPUT_FILE}, EXTERNAL_LINK=f{EXTERNAL_LINK}"
+)
 
 if INPUT_DIR:
-    IS_ON_AGENT = api.file.is_on_agent(INPUT_DIR)    
+    IS_ON_AGENT = api.file.is_on_agent(INPUT_DIR)
 elif INPUT_FILE:
     IS_ON_AGENT = api.file.is_on_agent(INPUT_FILE)
 
 STORAGE_DIR: str = my_app.data_dir
 mkdir(STORAGE_DIR, True)
+
+ANN_EXT = ".json"
