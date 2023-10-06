@@ -184,10 +184,7 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
         meta_exists = "meta.json" in files
         datasets = [f for f in files if sly.fs.dir_exists(os.path.join(dir_path, f))]
         datasets_exists = len(datasets) > 0
-        img_folders_exists = all(
-            [sly.fs.dir_exists(os.path.join(dir_path, dataset, "img")) for dataset in datasets]
-        )
-        return meta_exists and datasets_exists and img_folders_exists
+        return meta_exists and datasets_exists
 
     def search_images_dir(dir_path):
         listdir = os.listdir(dir_path)
@@ -196,7 +193,7 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
 
     project_dirs = [project_dir for project_dir in sly.fs.dirs_filter(input_path, search_projects)]
 
-    only_images = None
+    only_images = []
     if len(project_dirs) == 0:
         only_images = [img_dir for img_dir in sly.fs.dirs_filter(input_path, search_images_dir)]
 

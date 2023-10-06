@@ -34,9 +34,13 @@ def import_images_project(
         project_name = g.PROJECT_NAME if g.PROJECT_NAME else "Images project"
         project = api.project.create(g.WORKSPACE_ID, project_name, change_name_if_conflict=True)
         for img_dir in only_images:
+            if not sly.fs.dir_exists(img_dir):
+                continue
+            image_paths = sly.fs.list_files(img_dir)
+            if len(image_paths) == 0:
+                continue
             dataset_name = os.path.basename(os.path.normpath(img_dir))
             dataset = api.dataset.create(project.id, dataset_name, change_name_if_conflict=True)
-            image_paths = sly.fs.list_files(img_dir)
             image_names = [
                 os.path.basename(path) for path in image_paths if sly.image.has_valid_ext(path)
             ]
