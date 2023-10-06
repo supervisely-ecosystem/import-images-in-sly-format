@@ -21,98 +21,124 @@ def _get_effective_ann_name(img_name, ann_names):
 def import_images_project(
     api: sly.Api, task_id: int, context: dict, state: dict, app_logger
 ) -> None:
-    project_dirs = f.download_data(api=api, task_id=task_id, save_path=g.STORAGE_DIR)
+    project_dirs, only_images = f.download_data(api=api, task_id=task_id, save_path=g.STORAGE_DIR)
 
-    if len(project_dirs) == 0:
+    if len(project_dirs) == 0 and len(only_images) == 0:
         raise Exception(f"No valid projects found in the given directory {g.INPUT_DIR}.")
 
-    sly.logger.info(
-        f"Found {len(project_dirs)} valid projects in the given directory. "
-        f"Paths to the projects: {project_dirs}."
-    )
-
-    fails = []
-    for project_dir in project_dirs:
-        if g.PROJECT_NAME is None:
-            project_name = os.path.basename(os.path.normpath(project_dir))
-        else:
-            project_name = g.PROJECT_NAME
-
-        sly.logger.info(f"Working with project '{project_name}' from path '{project_dir}'.")
-        files_cnt = 0
-        for dataset_dir in os.listdir(project_dir):
-            dataset_path = os.path.join(project_dir, dataset_dir)
-            imgs_dir = os.path.join(dataset_path, "img")
-            ann_dir = os.path.join(dataset_path, "ann")
-            if not sly.fs.dir_exists(dataset_path):
-                continue
-            if (
-                len(os.listdir(dataset_path)) == 0
-                or not sly.fs.dir_exists(imgs_dir)
-                or len(os.listdir(imgs_dir)) == 0
-            ):
-                sly.fs.remove_dir(dataset_path)
-                continue
-            if not sly.fs.dir_exists(ann_dir):
-                sly.fs.mkdir(ann_dir)
-
-            img_names = os.listdir(imgs_dir)
-            raw_ann_names = os.listdir(ann_dir)
-            res_ann_names = []
-            for img_name in img_names:
-                ann_name = _get_effective_ann_name(img_name, raw_ann_names)
-                if ann_name is None:
-                    sly.logger.warn(
-                        f"Annotation file for image '{img_name}' not found in the given directory {ann_dir}. "
-                        "Will create an empty annotation file for this image."
-                    )
-                    ann = sly.Annotation.from_img_path(os.path.join(imgs_dir, img_name))
-                    ann_name = img_name + g.ANN_EXT
-                    sly.json.dump_json_file(ann.to_json(), os.path.join(ann_dir, ann_name))
-                res_ann_names.append(ann_name)
-                files_cnt += 2
-            unwanted_ann_names = list(set(raw_ann_names) - set(res_ann_names))
-            if len(unwanted_ann_names) > 0:
-                sly.logger.warn(
-                    f"Found {len(unwanted_ann_names)} annotation files without corresponding images: {unwanted_ann_names}. "
-                )
-                for name in unwanted_ann_names:
-                    sly.fs.silent_remove(os.path.join(ann_dir, name))
-
-        if files_cnt == 0:
-            sly.logger.warn(
-                f"Incorrect project structure for project '{project_name}'. Skipping..."
-            )
-            fails.append(project_name)
-            continue
-
-        try:
-            progress_project_cb = f.get_progress_cb(
-                api, task_id, f"Uploading project: {project_name}", files_cnt
-            )
-
-            sly.logger.info(f"Start uploading project '{project_name}'...")
-
-            sly.upload_project(
-                dir=project_dir,
-                api=api,
-                workspace_id=g.WORKSPACE_ID,
-                project_name=project_name,
-                progress_cb=progress_project_cb,
-            )
-
-            sly.logger.info(f"Project '{project_name}' uploaded successfully.")
-        except Exception as e:
-            fails.append(project_name)
-            sly.logger.warn(f"Project '{project_name}' uploading failed: {e}.")
-
-    success = len(project_dirs) - len(fails)
-    if success > 0:
-        sly.logger.info(
-            f"{success} project{'s' if success > 1 else ''} were uploaded successfully."
+    elif len(project_dirs) == 0 and len(only_images) > 0:
+        sly.logger.warn(
+            f"No valid projects found in the given directory {g.INPUT_DIR}. "
+            f"Upload all images from the given directory {g.INPUT_DIR} to the new project."
         )
-    if len(fails) > 0:
-        sly.logger.warn(f"Projects {fails} were not uploaded. Check your input data.")
+        project_name = g.PROJECT_NAME if g.PROJECT_NAME else "Images project"
+        project = api.project.create(g.WORKSPACE_ID, project_name, change_name_if_conflict=True)
+        for img_dir in only_images:
+            dataset_name = os.path.basename(os.path.normpath(img_dir))
+            dataset = api.dataset.create(project.id, dataset_name, change_name_if_conflict=True)
+            image_paths = sly.fs.list_files(img_dir)
+            image_names = [
+                os.path.basename(path) for path in image_paths if sly.image.has_valid_ext(path)
+            ]
+            images = api.image.upload_paths(dataset.id, image_names, image_paths)
+            sly.logger.info(
+                f"Added {len(images)} images from directory '{img_dir}' to dataset '{dataset_name}'."
+            )
+        sly.logger.info(f"All images were successfully uploaded to project '{project_name}'.")
+
+    else:
+        sly.logger.info(
+            f"Found {len(project_dirs)} valid projects in the given directory. "
+            f"Paths to the projects: {project_dirs}."
+        )
+
+        fails = []
+        for project_dir in project_dirs:
+            if g.PROJECT_NAME is None:
+                project_name = os.path.basename(os.path.normpath(project_dir))
+            else:
+                project_name = g.PROJECT_NAME
+
+            sly.logger.info(f"Working with project '{project_name}' from path '{project_dir}'.")
+            project_items_cnt = 0
+            for dataset_dir in os.listdir(project_dir):
+                dataset_items_cnt = 0
+                dataset_path = os.path.join(project_dir, dataset_dir)
+                imgs_dir = os.path.join(dataset_path, "img")
+                ann_dir = os.path.join(dataset_path, "ann")
+                if not sly.fs.dir_exists(dataset_path):
+                    continue
+                if (
+                    len(os.listdir(dataset_path)) == 0
+                    or not sly.fs.dir_exists(imgs_dir)
+                    or len(os.listdir(imgs_dir)) == 0
+                ):
+                    sly.fs.remove_dir(dataset_path)
+                    continue
+                if not sly.fs.dir_exists(ann_dir):
+                    sly.fs.mkdir(ann_dir)
+
+                img_names = os.listdir(imgs_dir)
+                raw_ann_names = os.listdir(ann_dir)
+                res_ann_names = []
+                for img_name in img_names:
+                    ann_name = _get_effective_ann_name(img_name, raw_ann_names)
+                    if ann_name is None:
+                        sly.logger.warn(
+                            f"Annotation file for image '{img_name}' not found in the given directory {ann_dir}. "
+                            "Will create an empty annotation file for this image."
+                        )
+                        ann = sly.Annotation.from_img_path(os.path.join(imgs_dir, img_name))
+                        ann_name = img_name + g.ANN_EXT
+                        sly.json.dump_json_file(ann.to_json(), os.path.join(ann_dir, ann_name))
+                    res_ann_names.append(ann_name)
+                    project_items_cnt += 1
+                    dataset_items_cnt += 1
+                if dataset_items_cnt == 0:
+                    sly.fs.remove_dir(dataset_path)
+                    continue
+                unwanted_ann_names = list(set(raw_ann_names) - set(res_ann_names))
+                if len(unwanted_ann_names) > 0:
+                    sly.logger.warn(
+                        f"Found {len(unwanted_ann_names)} annotation files without corresponding images: {unwanted_ann_names}. "
+                    )
+                    for name in unwanted_ann_names:
+                        sly.fs.silent_remove(os.path.join(ann_dir, name))
+
+            if project_items_cnt == 0:
+                sly.logger.warn(
+                    f"Incorrect project structure for project '{project_name}'. Skipping..."
+                )
+                fails.append(project_name)
+                continue
+
+            try:
+                progress_project_cb = f.get_progress_cb(
+                    api, task_id, f"Uploading project: {project_name}", project_items_cnt * 2
+                )
+
+                sly.logger.info(f"Start uploading project '{project_name}'...")
+
+                sly.upload_project(
+                    dir=project_dir,
+                    api=api,
+                    workspace_id=g.WORKSPACE_ID,
+                    project_name=project_name,
+                    progress_cb=progress_project_cb,
+                )
+
+                sly.logger.info(f"Project '{project_name}' uploaded successfully.")
+            except Exception as e:
+                fails.append(project_name)
+                sly.logger.warn(f"Project '{project_name}' uploading failed: {e}.")
+
+        success = len(project_dirs) - len(fails)
+        if success > 0:
+            sly.logger.info(
+                f"{success} project{'s' if success > 1 else ''} were uploaded successfully."
+            )
+        if len(fails) > 0:
+            sly.logger.warn(f"Projects {fails} were not uploaded. Check your input data.")
 
     g.my_app.stop()
 
