@@ -29,7 +29,7 @@ def import_images_project(
     elif len(project_dirs) == 0 and len(only_images) > 0:
         sly.logger.warn(
             f"No valid projects found in the given directory {g.INPUT_DIR}. "
-            f"Upload all images from the given directory {g.INPUT_DIR} to the new project."
+            f"Will upload all images from the given directory {g.INPUT_DIR} to the new project."
         )
         project_name = g.PROJECT_NAME if g.PROJECT_NAME else "Images project"
         project = api.project.create(g.WORKSPACE_ID, project_name, change_name_if_conflict=True)

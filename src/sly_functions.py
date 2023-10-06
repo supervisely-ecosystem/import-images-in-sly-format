@@ -81,26 +81,17 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
                 g.INPUT_DIR = dirname(normpath(g.INPUT_DIR))
         elif any(basename(normpath(x)) in ["img", "ann"] for x in listdir):
             parent_dir = dirname(normpath(g.INPUT_DIR))
-            parent_listrdir = api.file.listdir(g.TEAM_ID, parent_dir)
-            if (
-                "meta.json" in [basename(normpath(x)) for x in parent_listrdir]
-                and parent_dir != "/"
-            ):
+            if parent_dir != "/":
                 g.INPUT_DIR = parent_dir
 
     if g.INPUT_FILE:
         available_archive_formats = list(zip(*shutil.get_archive_formats()))[0]
         file_ext = sly.fs.get_file_ext(g.INPUT_FILE)
         if file_ext.lstrip(".") not in available_archive_formats:
+            sly.logger.info("File mode is selected, but uploaded file is not archive.")
             if basename(normpath(g.INPUT_FILE)) == "meta.json":
-                sly.logger.info(
-                    "File mode is selected, but image or json file is uploaded. Switching to folder mode."
-                )
                 g.INPUT_DIR, g.INPUT_FILE = dirname(g.INPUT_FILE), None
             elif sly.image.is_valid_ext(file_ext) or file_ext == ".json":
-                sly.logger.info(
-                    "File mode is selected, but image or json file is uploaded. Switching to folder mode."
-                )
                 parent_dir = dirname(normpath(g.INPUT_FILE))
                 listdir = api.file.listdir(g.TEAM_ID, parent_dir)
                 if basename(normpath(parent_dir)) in ["img", "ann"]:
