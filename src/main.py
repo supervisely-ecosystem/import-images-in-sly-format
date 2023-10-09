@@ -55,6 +55,8 @@ def import_images_project(
                 project_name = g.PROJECT_NAME
 
             sly.logger.info(f"Working with project '{project_name}' from path '{project_dir}'.")
+            meta_json = sly.json.load_json_file(os.path.join(project_dir, "meta.json"))
+            meta = sly.ProjectMeta.from_json(meta_json)
             project_items_cnt = 0
             for dataset_dir in os.listdir(project_dir):
                 dataset_items_cnt = 0
@@ -85,7 +87,7 @@ def import_images_project(
                         )
                         ann_name = f.create_empty_ann(imgs_dir, img_name, ann_dir)
                     try:
-                        sly.Annotation.load_json_file(os.path.join(ann_dir, ann_name))
+                        sly.Annotation.load_json_file(os.path.join(ann_dir, ann_name), meta)
                     except Exception as e:
                         sly.logger.warn(
                             f"Annotation file '{ann_name}' for image '{img_name}' is corrupted. "
