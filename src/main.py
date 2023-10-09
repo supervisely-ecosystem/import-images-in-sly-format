@@ -7,15 +7,6 @@ import sly_functions as f
 import sly_globals as g
 
 
-def _get_effective_ann_name(img_name, ann_names):
-    new_format_name = img_name + g.ANN_EXT
-    if new_format_name in ann_names:
-        return new_format_name
-    else:
-        old_format_name = os.path.splitext(img_name)[0] + g.ANN_EXT
-        return old_format_name if (old_format_name in ann_names) else None
-
-
 @g.my_app.callback("import-images-project")
 @sly.timeit
 def import_images_project(
@@ -86,15 +77,22 @@ def import_images_project(
                 raw_ann_names = os.listdir(ann_dir)
                 res_ann_names = []
                 for img_name in img_names:
-                    ann_name = _get_effective_ann_name(img_name, raw_ann_names)
+                    ann_name = f.get_effective_ann_name(img_name, raw_ann_names)
                     if ann_name is None:
                         sly.logger.warn(
                             f"Annotation file for image '{img_name}' not found in the given directory {ann_dir}. "
                             "Will create an empty annotation file for this image."
                         )
-                        ann = sly.Annotation.from_img_path(os.path.join(imgs_dir, img_name))
-                        ann_name = img_name + g.ANN_EXT
-                        sly.json.dump_json_file(ann.to_json(), os.path.join(ann_dir, ann_name))
+                        ann_name = f.create_empty_ann(imgs_dir, img_name, ann_dir)
+                    try:
+                        sly.Annotation.load_json_file(os.path.join(ann_dir, ann_name))
+                    except Exception as e:
+                        sly.logger.warn(
+                            f"Annotation file '{ann_name}' for image '{img_name}' is corrupted. "
+                            "Will create an empty annotation file for this image. "
+                            f"Error: {e}"
+                        )
+                        ann_name = f.create_empty_ann(imgs_dir, img_name, ann_dir)
                     res_ann_names.append(ann_name)
                     project_items_cnt += 1
                     dataset_items_cnt += 1

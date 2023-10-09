@@ -232,3 +232,19 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
     if bad_proj_cnt > 0:
         sly.logger.warn(f"{bad_proj_msg}. Make sure that you are uploading only images projects.")
     return project_dirs, only_images
+
+
+def get_effective_ann_name(img_name, ann_names):
+    new_format_name = img_name + g.ANN_EXT
+    if new_format_name in ann_names:
+        return new_format_name
+    else:
+        old_format_name = os.path.splitext(img_name)[0] + g.ANN_EXT
+        return old_format_name if (old_format_name in ann_names) else None
+
+
+def create_empty_ann(imgs_dir, img_name, ann_dir):
+    ann = sly.Annotation.from_img_path(os.path.join(imgs_dir, img_name))
+    ann_name = img_name + g.ANN_EXT
+    sly.json.dump_json_file(ann.to_json(), os.path.join(ann_dir, ann_name))
+    return ann_name
