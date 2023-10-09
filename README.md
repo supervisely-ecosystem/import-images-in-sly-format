@@ -22,6 +22,8 @@
 
 Import images in [Supervisely format](https://docs.supervise.ly/data-organization/00_ann_format_navi) with annotations. Supported extensions: `.jpg`, `.jpeg`, `.mpo`, `.bmp`, `.png`, `.webp` and `.tiff`.
 
+🗄️ Starting from version `1.3.22` the application supports the import of images metadata from corresponding `meta` directory in dataset. Learn more about images metadata in [this article in our Developer Portal](https://developer.supervisely.com/getting-started/python-sdk-tutorials/images/image#get-and-update-image-metadata).
+
 🗄️ Starting from version `1.3.12` the application supports the import of multiple projects at once. Each project should be placed in a separate directory with the correct structure (see below).
 
 🏋️ Starting from version `v1.3.2` application supports import from a special directory on your local computer. It is made for Enterprise Edition customers who need to upload tens or even hundreds of gigabytes of data without using a drag-and-drop mechanism:
@@ -40,28 +42,34 @@ The directory name defines the project name. Subdirectories define dataset names
 
 Project directory example:
 
-```
-.
-cats_vs_dogs_project
-├── cats
-│   ├── ann
-│   │   ├── cats_1.jpg.json
-│   │   ├── ...
-│   │   └── cats_9.jpg.json
-│   └── img
-│       ├── cats_1.jpg
-│       ├── ...
-│       └── cats_9.jpg
-├── dogs
-│   ├── ann
-│   │   ├── dogs_1.jpg.json
-│   │   ├── ...
-│   │   └── dogs_9.jpg.json
-│   └── img
-│       ├── dogs_1.jpg
-│       ├── ...
-│       └── dogs_9.jpg
-└── meta.json
+Directory `meta` with images metadata is optional. If it is not present, images will be uploaded without any additional metadata.
+If the directory is present, it may contain metadata files only for some images. In this case, only these images will have metadata, others will be uploaded without it.
+
+```text
+📦 project_name
+ ┣ 📂 dataset_name_01
+ ┃ ┣ 📂 ann
+ ┃ ┃ ┣ 📄 IMG_0748.jpeg.json
+ ┃ ┃ ┣ 📄 IMG_1836.jpeg.json
+ ┃ ┃ ┣ 📄 IMG_2084.jpeg.json
+ ┃ ┃ ┣ 📄 IMG_3861.jpeg.json
+ ┃ ┃ ┣ 📄 IMG_4451.jpeg.json
+ ┃ ┃ ┗ 📄 IMG_8144.jpeg.json
+ ┃ ┣ 📂 img
+ ┃ ┃ ┣ 🏞️ IMG_0748.jpeg
+ ┃ ┃ ┣ 🏞️ IMG_1836.jpeg
+ ┃ ┃ ┣ 🏞️ IMG_2084.jpeg
+ ┃ ┃ ┣ 🏞️ IMG_3861.jpeg
+ ┃ ┃ ┣ 🏞️ IMG_4451.jpeg
+ ┃ ┃ ┗ 🏞️ IMG_8144.jpeg
+ ┃ ┗ 📂 meta (optional)
+ ┃ ┃ ┣ 📄 IMG_0748.jpeg.json
+ ┃ ┃ ┣ 📄 IMG_1836.jpeg.json
+ ┃ ┃ ┣ 📄 IMG_2084.jpeg.json
+ ┃ ┃ ┣ 📄 IMG_3861.jpeg.json
+ ┃ ┃ ┣ 📄 IMG_4451.jpeg.json
+ ┃ ┃ ┗ 📄 IMG_8144.jpeg.json
+ ┗ 📄 meta.json
 ```
 
 As a result, we will get project `cats_vs_dogs_project` with 2 datasets named: `cats` and `dogs`.
