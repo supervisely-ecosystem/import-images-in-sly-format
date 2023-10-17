@@ -84,13 +84,9 @@ def import_images_project(
                 res_ann_names = []
                 for img_name in img_names:
                     ann_name = f.get_effective_ann_name(img_name, raw_ann_names)
-                    if ann_name is None:
-                        sly.logger.warn(
-                            f"Annotation file for image '{img_name}' not found in the given directory {ann_dir}. "
-                            "Will create an empty annotation file for this image."
-                        )
-                        ann_name = f.create_empty_ann(imgs_dir, img_name, ann_dir)
                     try:
+                        if ann_name is None:
+                            raise Exception("Annotation file not found")
                         with open(os.path.join(ann_dir, ann_name)) as ann_file:
                             data = json.load(ann_file)
                             for field in g.REQUIRED_FIELDS:
