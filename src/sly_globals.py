@@ -2,6 +2,7 @@ import os
 import supervisely as sly
 from dotenv import load_dotenv
 from supervisely.io.fs import mkdir
+from supervisely.annotation.annotation import AnnotationJsonFields
 from supervisely.app.v1.app_service import AppService
 
 if sly.is_development():
@@ -38,3 +39,8 @@ STORAGE_DIR: str = my_app.data_dir
 mkdir(STORAGE_DIR, True)
 
 ANN_EXT = ".json"
+REQUIRED_FIELDS = [
+    AnnotationJsonFields.LABELS,
+    AnnotationJsonFields.IMG_SIZE,
+    AnnotationJsonFields.IMG_TAGS,
+]
