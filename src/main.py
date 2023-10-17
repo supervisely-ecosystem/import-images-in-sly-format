@@ -1,4 +1,7 @@
+import json
 import os
+
+from collections import defaultdict
 
 import supervisely as sly
 from supervisely.annotation.annotation import AnnotationJsonFields
@@ -60,6 +63,7 @@ def import_images_project(
             project_items_cnt = 0
             for dataset_dir in os.listdir(project_dir):
                 dataset_items_cnt = 0
+                failed_ann_names = defaultdict(list)
                 dataset_path = os.path.join(project_dir, dataset_dir)
                 imgs_dir = os.path.join(dataset_path, "img")
                 ann_dir = os.path.join(dataset_path, "ann")
@@ -80,24 +84,29 @@ def import_images_project(
                 res_ann_names = []
                 for img_name in img_names:
                     ann_name = f.get_effective_ann_name(img_name, raw_ann_names)
-                    if ann_name is None:
-                        sly.logger.warn(
-                            f"Annotation file for image '{img_name}' not found in the given directory {ann_dir}. "
-                            "Will create an empty annotation file for this image."
-                        )
-                        ann_name = f.create_empty_ann(imgs_dir, img_name, ann_dir)
                     try:
-                        sly.Annotation.load_json_file(os.path.join(ann_dir, ann_name), meta)
+                        if ann_name is None:
+                            raise Exception("Annotation file not found")
+                        with open(os.path.join(ann_dir, ann_name)) as ann_file:
+                            data = json.load(ann_file)
+                            for field in g.REQUIRED_FIELDS:
+                                if field not in data:
+                                    raise Exception(f"No '{field}' field in annotation file")
+                            for label_json in data.get(AnnotationJsonFields.LABELS):
+                                sly.Label.from_json(label_json, meta)
+
                     except Exception as e:
-                        sly.logger.warn(
-                            f"Annotation file '{ann_name}' for image '{img_name}' is corrupted. "
-                            "Will create an empty annotation file for this image. "
-                            f"Error: {e}"
-                        )
+                        failed_ann_names[e.args[0]].append(ann_name)
                         ann_name = f.create_empty_ann(imgs_dir, img_name, ann_dir)
                     res_ann_names.append(ann_name)
                     project_items_cnt += 1
                     dataset_items_cnt += 1
+                if len(failed_ann_names) > 0:
+                    for error, ann_names in failed_ann_names.items():
+                        sly.logger.warn(
+                            f"[{error}] error in {len(ann_names)} annotation files: {ann_names}. "
+                            "Will create empty annotation files instead..."
+                        )
                 if dataset_items_cnt == 0:
                     sly.fs.remove_dir(dataset_path)
                     continue
@@ -139,7 +148,7 @@ def import_images_project(
         success = len(project_dirs) - len(fails)
         if success > 0:
             sly.logger.info(
-                f"{success} project{'s' if success > 1 else ''} were uploaded successfully."
+                f"{success} project{'s were' if success > 1 else ' was'} uploaded successfully."
             )
         if len(fails) > 0:
             sly.logger.warn(f"Projects {fails} were not uploaded. Check your input data.")
