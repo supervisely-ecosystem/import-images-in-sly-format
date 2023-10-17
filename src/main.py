@@ -91,8 +91,8 @@ def import_images_project(
                         )
                         ann_name = f.create_empty_ann(imgs_dir, img_name, ann_dir)
                     try:
-                        with open(os.path.join(ann_dir, ann_name)) as f:
-                            data = json.load(f)
+                        with open(os.path.join(ann_dir, ann_name)) as ann_file:
+                            data = json.load(ann_file)
                             for field in g.REQUIRED_FIELDS:
                                 if field not in data:
                                     raise Exception(f"No '{field}' field in annotation file")
