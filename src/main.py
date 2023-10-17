@@ -108,7 +108,7 @@ def import_images_project(
                 if len(failed_ann_names) > 0:
                     for error, ann_names in failed_ann_names.items():
                         sly.logger.warn(
-                            f"{error} in {len(ann_names)} annotation files: {ann_names}. "
+                            f"[{error}] error in {len(ann_names)} annotation files: {ann_names}. "
                             "Will create empty annotation files instead..."
                         )
                 if dataset_items_cnt == 0:
@@ -152,7 +152,7 @@ def import_images_project(
         success = len(project_dirs) - len(fails)
         if success > 0:
             sly.logger.info(
-                f"{success} project{'s' if success > 1 else ''} were uploaded successfully."
+                f"{success} project{'s were' if success > 1 else ' was'} uploaded successfully."
             )
         if len(fails) > 0:
             sly.logger.warn(f"Projects {fails} were not uploaded. Check your input data.")
