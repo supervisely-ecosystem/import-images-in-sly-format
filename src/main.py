@@ -79,15 +79,15 @@ def import_images_project(
                                 sly.Label.from_json(label_json, meta)
 
                     except Exception as e:
-                        failed_ann_names[e.args[0]].append(ann_name)
                         ann_name = f.create_empty_ann(imgs_dir, img_name, ann_dir)
+                        failed_ann_names[e.args[0]].append(ann_name)
                     res_ann_names.append(ann_name)
                     project_items_cnt += 1
                     dataset_items_cnt += 1
                 if len(failed_ann_names) > 0:
                     for error, ann_names in failed_ann_names.items():
                         sly.logger.warn(
-                            f"[{error}] error in {len(ann_names)} annotation files: {ann_names}. "
+                            f"[{error}] error occurred for {len(ann_names)} items: {ann_names}. "
                             "Will create empty annotation files instead..."
                         )
                 if dataset_items_cnt == 0:
