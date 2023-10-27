@@ -18,35 +18,18 @@ def import_images_project(
     project_dirs, only_images = f.download_data(api=api, task_id=task_id, save_path=g.STORAGE_DIR)
 
     if len(project_dirs) == 0 and len(only_images) == 0:
-        raise Exception(f"No valid projects found in the given directory {g.INPUT_DIR}.")
+        raise Exception(f"Not found any images for import. Please, check your input data.")
 
     elif len(project_dirs) == 0 and len(only_images) > 0:
         sly.logger.warn(
-            f"No valid projects found in the given directory {g.INPUT_DIR}. "
-            f"Will upload all images from the given directory {g.INPUT_DIR} to the new project."
+            f"Not found valid data (project in Supervisely format). "
+            f"Will upload all images from directories: {only_images}."
         )
-        project_name = g.PROJECT_NAME if g.PROJECT_NAME else "Images project"
-        project = api.project.create(g.WORKSPACE_ID, project_name, change_name_if_conflict=True)
-        for img_dir in only_images:
-            if not sly.fs.dir_exists(img_dir):
-                continue
-            image_paths = sly.fs.list_files(img_dir)
-            if len(image_paths) == 0:
-                continue
-            dataset_name = os.path.basename(os.path.normpath(img_dir))
-            dataset = api.dataset.create(project.id, dataset_name, change_name_if_conflict=True)
-            image_names = [
-                os.path.basename(path) for path in image_paths if sly.image.has_valid_ext(path)
-            ]
-            images = api.image.upload_paths(dataset.id, image_names, image_paths)
-            sly.logger.info(
-                f"Added {len(images)} images from directory '{img_dir}' to dataset '{dataset_name}'."
-            )
-        sly.logger.info(f"All images were successfully uploaded to project '{project_name}'.")
+        f.upload_only_images(api, task_id, only_images)
 
     else:
         sly.logger.info(
-            f"Found {len(project_dirs)} valid projects in the given directory. "
+            f"Found {len(project_dirs)} project directories in the given directory. "
             f"Paths to the projects: {project_dirs}."
         )
 
@@ -96,15 +79,15 @@ def import_images_project(
                                 sly.Label.from_json(label_json, meta)
 
                     except Exception as e:
-                        failed_ann_names[e.args[0]].append(ann_name)
                         ann_name = f.create_empty_ann(imgs_dir, img_name, ann_dir)
+                        failed_ann_names[e.args[0]].append(ann_name)
                     res_ann_names.append(ann_name)
                     project_items_cnt += 1
                     dataset_items_cnt += 1
                 if len(failed_ann_names) > 0:
                     for error, ann_names in failed_ann_names.items():
                         sly.logger.warn(
-                            f"[{error}] error in {len(ann_names)} annotation files: {ann_names}. "
+                            f"[{error}] error occurred for {len(ann_names)} items: {ann_names}. "
                             "Will create empty annotation files instead..."
                         )
                 if dataset_items_cnt == 0:
@@ -142,16 +125,25 @@ def import_images_project(
 
                 sly.logger.info(f"Project '{project_name}' uploaded successfully.")
             except Exception as e:
-                fails.append(project_name)
-                sly.logger.warn(f"Project '{project_name}' uploading failed: {e}.")
+                try:
+                    project = sly.project.read_single_project(project_dir)
+                    sly.logger.warn(f"Project '{project_name}' uploading failed: {str(e)}.")
+                    project_name = f.upload_only_images(
+                        api, task_id, [ds.item_dir for ds in project.datasets]
+                    )
+                except Exception as e:
+                    fails.append(project_name)
+                    sly.logger.warn(f"Not found images in the directory '{project_dir}'.")
 
         success = len(project_dirs) - len(fails)
         if success > 0:
             sly.logger.info(
                 f"{success} project{'s were' if success > 1 else ' was'} uploaded successfully."
             )
-        if len(fails) > 0:
-            sly.logger.warn(f"Projects {fails} were not uploaded. Check your input data.")
+        else:
+            raise Exception(
+                f"Failed to import data. Not found images or projects in Supervisely format."
+            )
 
     g.my_app.stop()
 
