@@ -47,7 +47,14 @@ def download_file_from_link(link, file_name, archive_path, progress_message, app
     progress_cb = get_progress_cb(g.api, g.TASK_ID, progress_message, sizeb, is_size=True)
     if not file_exists(archive_path):
         download(link, archive_path, cache=g.my_app.cache, progress=progress_cb)
-        app_logger.info(f"{file_name} has been successfully downloaded")
+    if file_exists(archive_path) and sizeb != os.path.getsize(archive_path):
+        silent_remove(archive_path)
+        raise Exception(
+            f"Failed to download dataset archive. "
+            "It may be due to high load on the server. "
+            f"Please, try again later."
+        )
+    app_logger.info(f"{file_name} has been successfully downloaded")
 
 
 def search_projects(dir_path):
@@ -215,7 +222,10 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
         input_path = os.path.join(save_path, get_file_name(proj_path))
         if not is_archive(save_archive_path):
             raise Exception(f"Downloaded file is not archive. Path: {save_archive_path}")
-        sly.fs.unpack_archive(save_archive_path, input_path)
+        try:
+            sly.fs.unpack_archive(save_archive_path, input_path)
+        except Exception as e:
+            raise Exception(f"Failed to read dataset archive file. Please try again. Error: {e}")
         sly.logger.debug(f"Unpacked archive {save_archive_path} to {input_path}.")
         silent_remove(save_archive_path)
 
