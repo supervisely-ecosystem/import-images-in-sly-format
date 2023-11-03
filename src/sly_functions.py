@@ -47,7 +47,7 @@ def download_file_from_link(link, file_name, archive_path, progress_message, app
     progress_cb = get_progress_cb(g.api, g.TASK_ID, progress_message, sizeb, is_size=True)
     if not file_exists(archive_path):
         download(link, archive_path, cache=g.my_app.cache, progress=progress_cb)
-    if file_exists(archive_path) and sizeb + 1 != os.path.getsize(archive_path):
+    if file_exists(archive_path) and sizeb != os.path.getsize(archive_path):
         silent_remove(archive_path)
         raise Exception(
             f"Failed to download dataset archive. "

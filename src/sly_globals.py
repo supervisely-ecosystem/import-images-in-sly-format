@@ -20,8 +20,6 @@ TASK_ID = int(os.environ["TASK_ID"])
 INPUT_DIR: str = os.environ.get("modal.state.slyFolder", None)
 INPUT_FILE: str = os.environ.get("modal.state.slyFile", None)
 EXTERNAL_LINK: str = os.environ.get("modal.state.slyArchiveUrl", None)
-EXTERNAL_LINK = "https://datasetninja.com/supervisely-supervisely-assets-public/teams_storage/I/6/jM/pJsNmoJxeBnYYdzWOHLcd5NDKKeIgYZkbCAle3qFlnhUhskOhEfyzG6sFmCUjNmoreRx9JwZ8MvHTJCtfGv2pLseZXNHbf4kHOS1d6OZfgaTIKbCia5GZFJTJXtm.tar"
-INPUT_DIR = INPUT_FILE = None
 PROJECT_NAME: str = os.environ.get("modal.state.slyProjectName", None)
 if EXTERNAL_LINK is not None:
     if not (EXTERNAL_LINK.startswith("https://") or EXTERNAL_LINK.startswith("http://")):
