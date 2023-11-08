@@ -89,34 +89,35 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
     :rtype: List[str]
     """
 
-    if g.INPUT_DIR:
-        listdir = api.file.listdir(g.TEAM_ID, g.INPUT_DIR)
-        archives_cnt = len([is_archive(file) for file in listdir if is_archive(file) is True])
-        if archives_cnt > 1:
-            raise Exception("Multiple archives are not supported.")
-        if len(listdir) == 1 and archives_cnt == 1:
-            sly.logger.info(
-                "Folder mode is selected, but archive file is uploaded. Switching to file mode."
-            )
-            g.INPUT_DIR, g.INPUT_FILE = None, listdir[0]
-        else:
-            if all(
-                basename(normpath(x)) in ["img", "ann", "meta"]
-                for x in listdir
-                if api.file.dir_exists(g.TEAM_ID, x)
-            ):
-                g.INPUT_DIR = dirname(normpath(g.INPUT_DIR))
-                listdir = api.file.listdir(g.TEAM_ID, g.INPUT_DIR)
-            if basename(normpath(g.INPUT_DIR)) in ["img", "ann", "meta"]:
-                g.INPUT_DIR = dirname(normpath(g.INPUT_DIR))
-                listdir = api.file.listdir(g.TEAM_ID, g.INPUT_DIR)
-            if "meta.json" in [
-                basename(normpath(x))
-                for x in api.file.listdir(g.TEAM_ID, dirname(normpath(g.INPUT_DIR)))
-            ]:
-                g.INPUT_DIR = dirname(normpath(g.INPUT_DIR))
-            if not g.INPUT_DIR.endswith("/"):
-                g.INPUT_DIR += "/"
+    if not g.IS_ON_AGENT:
+        if g.INPUT_DIR:
+            listdir = api.file.listdir(g.TEAM_ID, g.INPUT_DIR)
+            archives_cnt = len([is_archive(file) for file in listdir if is_archive(file) is True])
+            if archives_cnt > 1:
+                raise Exception("Multiple archives are not supported.")
+            if len(listdir) == 1 and archives_cnt == 1:
+                sly.logger.info(
+                    "Folder mode is selected, but archive file is uploaded. Switching to file mode."
+                )
+                g.INPUT_DIR, g.INPUT_FILE = None, listdir[0]
+            else:
+                if all(
+                    basename(normpath(x)) in ["img", "ann", "meta"]
+                    for x in listdir
+                    if api.file.dir_exists(g.TEAM_ID, x)
+                ):
+                    g.INPUT_DIR = dirname(normpath(g.INPUT_DIR))
+                    listdir = api.file.listdir(g.TEAM_ID, g.INPUT_DIR)
+                if basename(normpath(g.INPUT_DIR)) in ["img", "ann", "meta"]:
+                    g.INPUT_DIR = dirname(normpath(g.INPUT_DIR))
+                    listdir = api.file.listdir(g.TEAM_ID, g.INPUT_DIR)
+                if "meta.json" in [
+                    basename(normpath(x))
+                    for x in api.file.listdir(g.TEAM_ID, dirname(normpath(g.INPUT_DIR)))
+                ]:
+                    g.INPUT_DIR = dirname(normpath(g.INPUT_DIR))
+                if not g.INPUT_DIR.endswith("/"):
+                    g.INPUT_DIR += "/"
 
     if g.INPUT_FILE:
         file_ext = get_file_ext(g.INPUT_FILE)
