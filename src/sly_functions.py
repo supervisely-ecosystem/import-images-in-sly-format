@@ -66,8 +66,18 @@ def search_projects(dir_path):
             meta_path = os.path.join(dir_path, "meta.json")
             meta_json = sly.json.load_json_file(meta_path)
             meta = sly.ProjectMeta.from_json(meta_json)
+        except json.decoder.JSONDecodeError as e:
+            sly.logger.error(
+                f"Can not decode meta.json file with path {meta_path}: {e.msg} at "
+                f"line number: {e.lineno}, column: {e.colno}, position: {e.pos}. ",
+                exc_info=False,
+            )
+            return False
         except Exception as e:
-            sly.logger.error(f"Incorrect meta.json file in {dir_path}. \nError: {e}")
+            sly.logger.error(
+                f"Incorrect meta.json file in {dir_path}. \nError: {e}",
+                exc_info=False,
+            )
             return False
     datasets = [f for f in files if sly.fs.dir_exists(os.path.join(dir_path, f))]
     datasets_exists = len(datasets) > 0
@@ -337,23 +347,26 @@ def check_items(imgs_dir, ann_dir, meta):
     raw_ann_names = os.listdir(ann_dir)
     res_ann_names = []
     for img_name in img_names:
-        ann_name = get_effective_ann_name(img_name, raw_ann_names)
         try:
-            if ann_name is None:
-                raise Exception("Annotation file not found")
-            with open(os.path.join(ann_dir, ann_name)) as ann_file:
-                data = json.load(ann_file)
-                for field in g.REQUIRED_FIELDS:
-                    if field not in data:
-                        raise Exception(f"No '{field}' field in annotation file")
-                for label_json in data.get(AnnotationJsonFields.LABELS):
-                    sly.Label.from_json(label_json, meta)
+            ann_name = get_effective_ann_name(img_name, raw_ann_names)
+            try:
+                if ann_name is None:
+                    raise Exception("Annotation file not found")
+                with open(os.path.join(ann_dir, ann_name)) as ann_file:
+                    data = json.load(ann_file)
+                    for field in g.REQUIRED_FIELDS:
+                        if field not in data:
+                            raise Exception(f"No '{field}' field in annotation file")
+                    for label_json in data.get(AnnotationJsonFields.LABELS):
+                        sly.Label.from_json(label_json, meta)
 
+            except Exception as e:
+                ann_name = create_empty_ann(imgs_dir, img_name, ann_dir)
+                failed_ann_names[e.args[0]].append(ann_name)
+            items_cnt += 1
+            res_ann_names.append(ann_name)
         except Exception as e:
-            ann_name = create_empty_ann(imgs_dir, img_name, ann_dir)
-            failed_ann_names[e.args[0]].append(ann_name)
-        items_cnt += 1
-        res_ann_names.append(ann_name)
+            pass
 
     if len(failed_ann_names) > 0:
         for error, ann_names in failed_ann_names.items():
