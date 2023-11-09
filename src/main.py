@@ -69,7 +69,7 @@ def import_images_project(
                     f"Incorrect Supervisely format datasets: {invalid_datasets}. \n"
                     f"Trying to upload only images."
                 )
-                project_without_ann = f.upload_only_images(api, invalid_datasets)
+                project_without_ann = f.upload_only_images(api, invalid_datasets, recursively=True)
                 if project_without_ann is not None:
                     project_items_cnt += project_without_ann.items_count
                     projects_without_ann += 1
@@ -100,7 +100,7 @@ def import_images_project(
                 try:
                     project = sly.project.read_single_project(project_dir)
                     sly.logger.warn(f"Project '{project_name}' uploading failed: {str(e)}.")
-                    project = f.upload_only_images(api, [ds.item_dir for ds in project.datasets])
+                    project = f.upload_only_images(api, [ds.item_dir for ds in project.datasets], recursively=True)
                     if project is None:
                         raise Exception
                 except Exception as e:

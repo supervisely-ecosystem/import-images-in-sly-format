@@ -308,18 +308,24 @@ def create_empty_ann(imgs_dir, img_name, ann_dir):
     return ann_name
 
 
-def upload_only_images(api: sly.Api, img_dirs: list):
+def upload_only_images(api: sly.Api, img_dirs: list, recursively: bool = False):
     project_name = "Images project"
     project = api.project.create(g.WORKSPACE_ID, project_name, change_name_if_conflict=True)
     images_cnt = 0
     for img_dir in img_dirs:
         if not sly.fs.dir_exists(img_dir):
             continue
-        image_paths = sly.fs.list_files(
-            img_dir,
-            valid_extensions=sly.image.SUPPORTED_IMG_EXTS,
-            ignore_valid_extensions_case=True,
-        )
+        if recursively:
+            image_paths = sly.fs.list_files_recursively(
+                img_dir,
+                valid_extensions=sly.image.SUPPORTED_IMG_EXTS,
+            )
+        else:
+            image_paths = sly.fs.list_files(
+                img_dir,
+                valid_extensions=sly.image.SUPPORTED_IMG_EXTS,
+                ignore_valid_extensions_case=True,
+            )
         if len(image_paths) == 0:
             continue
         dataset_name = os.path.basename(os.path.normpath(img_dir))
