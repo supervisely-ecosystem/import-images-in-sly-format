@@ -1,6 +1,6 @@
 import functools
 import os
-import shutil
+import json
 from os.path import basename, dirname, normpath
 import requests
 from typing import Callable, List
@@ -16,6 +16,7 @@ from supervisely.io.fs import (
     download,
     mkdir,
 )
+from supervisely.annotation.annotation import AnnotationJsonFields
 
 import sly_globals as g
 
@@ -60,6 +61,27 @@ def download_file_from_link(link, file_name, archive_path, progress_message, app
 def search_projects(dir_path):
     files = os.listdir(dir_path)
     meta_exists = "meta.json" in files
+    if meta_exists:
+        try:
+            meta_path = os.path.join(dir_path, "meta.json")
+            try:
+                with open(meta_path, encoding="utf-8") as fin:
+                    meta_json = json.load(fin)
+            except json.decoder.JSONDecodeError as e:
+                sly.logger.error(
+                    f"Can not decode meta.json file with path {meta_path}: {e.msg} at "
+                    f"line number: {e.lineno}, column: {e.colno}, position: {e.pos}. ",
+                    exc_info=False,
+                )
+                return False
+            meta_json = sly.json.load_json_file(meta_path)
+            meta = sly.ProjectMeta.from_json(meta_json)
+        except Exception as e:
+            sly.logger.error(
+                f"Incorrect meta.json file in {dir_path}. \nError: {e}",
+                exc_info=False,
+            )
+            return False
     datasets = [f for f in files if sly.fs.dir_exists(os.path.join(dir_path, f))]
     datasets_exists = len(datasets) > 0
     return meta_exists and datasets_exists
@@ -67,8 +89,8 @@ def search_projects(dir_path):
 
 def search_images_dir(dir_path):
     listdir = os.listdir(dir_path)
-    is_img_dir = any(get_file_ext(f) in sly.image.SUPPORTED_IMG_EXTS for f in listdir)
-    return is_img_dir
+    images_found = any([sly.image.has_valid_ext(os.path.join(dir_path, f)) for f in listdir])
+    return images_found
 
 
 def is_archive(path):
@@ -247,8 +269,8 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
     # search for projects with another types
     for r, d, fs in os.walk(input_path):
         if "meta.json" in fs:
-            meta_json = sly.json.load_json_file(os.path.join(r, "meta.json"))
             try:
+                meta_json = sly.json.load_json_file(os.path.join(r, "meta.json"))
                 meta = sly.ProjectMeta.from_json(meta_json)
             except:
                 continue
@@ -289,18 +311,24 @@ def create_empty_ann(imgs_dir, img_name, ann_dir):
     return ann_name
 
 
-def upload_only_images(api: sly.Api, task_id, img_dirs: list):
+def upload_only_images(api: sly.Api, img_dirs: list, recursively: bool = False):
     project_name = "Images project"
     project = api.project.create(g.WORKSPACE_ID, project_name, change_name_if_conflict=True)
     images_cnt = 0
     for img_dir in img_dirs:
         if not sly.fs.dir_exists(img_dir):
             continue
-        image_paths = sly.fs.list_files(
-            img_dir,
-            valid_extensions=sly.image.SUPPORTED_IMG_EXTS,
-            ignore_valid_extensions_case=True,
-        )
+        if recursively:
+            image_paths = sly.fs.list_files_recursively(
+                img_dir,
+                valid_extensions=sly.image.SUPPORTED_IMG_EXTS,
+            )
+        else:
+            image_paths = sly.fs.list_files(
+                img_dir,
+                valid_extensions=sly.image.SUPPORTED_IMG_EXTS,
+                ignore_valid_extensions_case=True,
+            )
         if len(image_paths) == 0:
             continue
         dataset_name = os.path.basename(os.path.normpath(img_dir))
@@ -310,8 +338,59 @@ def upload_only_images(api: sly.Api, task_id, img_dirs: list):
         ]
         images = api.image.upload_paths(dataset.id, image_names, image_paths)
         images_cnt += len(images)
+        sly.fs.remove_dir(img_dir)
     if images_cnt > 1:
-        sly.logger.info(f"{images_cnt} images were uploaded to project '{project_name}'.")
+        sly.logger.info(f"{images_cnt} images were uploaded to project '{project.name}'.")
     elif images_cnt == 1:
-        sly.logger.info(f"{images_cnt} image was uploaded to project '{project_name}'.")
-    return project.name
+        sly.logger.info(f"{images_cnt} image was uploaded to project '{project.name}'.")
+    else:
+        api.project.remove(project.id)
+        return None
+    project = api.project.get_info_by_id(project.id)
+    return project
+
+
+def check_items(imgs_dir, ann_dir, meta):
+    items_cnt = 0
+    failed_ann_names = defaultdict(list)
+    img_names = [name for name in os.listdir(imgs_dir) if sly.image.has_valid_ext(name)]
+    raw_ann_names = [name for name in os.listdir(ann_dir) if get_file_ext(name) == g.ANN_EXT]
+    res_ann_names = []
+    for img_name in img_names:
+        try:
+            ann_name = get_effective_ann_name(img_name, raw_ann_names)
+            try:
+                if ann_name is None:
+                    raise Exception("Annotation file not found")
+                with open(os.path.join(ann_dir, ann_name)) as ann_file:
+                    data = json.load(ann_file)
+                    for field in g.REQUIRED_FIELDS:
+                        if field not in data:
+                            raise Exception(f"No '{field}' field in annotation file")
+                    for label_json in data.get(AnnotationJsonFields.LABELS):
+                        sly.Label.from_json(label_json, meta)
+
+            except Exception as e:
+                ann_name = create_empty_ann(imgs_dir, img_name, ann_dir)
+                failed_ann_names[e.args[0]].append(ann_name)
+            items_cnt += 1
+            res_ann_names.append(ann_name)
+        except Exception as e:
+            pass
+
+    if len(failed_ann_names) > 0:
+        for error, ann_names in failed_ann_names.items():
+            sly.logger.warn(
+                f"[{error}] error occurred for {len(ann_names)} items: {ann_names}. "
+                "Created empty annotation files for them."
+            )
+    unwanted_ann_names = list(set(raw_ann_names) - set(res_ann_names))
+    if len(unwanted_ann_names) > 0:
+        sly.logger.warn(
+            f"Found {len(unwanted_ann_names)} annotation files without corresponding images: "
+            f"{unwanted_ann_names}. Skipping."
+        )
+        for name in unwanted_ann_names:
+            sly.fs.silent_remove(os.path.join(ann_dir, name))
+
+    return items_cnt
