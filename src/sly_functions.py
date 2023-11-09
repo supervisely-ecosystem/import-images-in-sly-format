@@ -354,7 +354,7 @@ def check_items(imgs_dir, ann_dir, meta):
     items_cnt = 0
     failed_ann_names = defaultdict(list)
     img_names = [name for name in os.listdir(imgs_dir) if sly.image.has_valid_ext(name)]
-    raw_ann_names = os.listdir(ann_dir)
+    raw_ann_names = [name for name in os.listdir(ann_dir) if get_file_ext(name) == g.ANN_EXT]
     res_ann_names = []
     for img_name in img_names:
         try:
