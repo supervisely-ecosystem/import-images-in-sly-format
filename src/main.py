@@ -22,7 +22,7 @@ def import_images_project(
 
     if len(project_dirs) > 0:
         sly.logger.info(
-            f"Found {len(project_dirs)} project directories in the given directory. \n"
+            f"Found {len(project_dirs)} project directories in the given directory. "
             f"Paths to the projects: {project_dirs}."
         )
 
@@ -107,16 +107,16 @@ def import_images_project(
                     failed_projects += 1
                     sly.logger.warn(f"Not found images in the directory '{project_dir}'.")
 
-        msg = f"SUMMARY: \n"
-        if success_projects > 0:
-            msg += f"Success projects: {success_projects} \n"
+        msg = f"SUMMARY:"
+        processed_projects = success_projects + projects_without_ann
+        if processed_projects > 0:
+            msg += f"\n    Processed projects: {processed_projects} "
         if projects_without_ann > 0:
-            msg += f"Projects without annotations: {projects_without_ann}. "
-            msg += f"Incorrect annotations format. Please, check your input data. \n"
+            msg += f"({projects_without_ann} projects without annotations)."
         if failed_projects > 0:
-            msg += f"Failed projects: {failed_projects}. "
+            msg += f"\n    Failed projects: {failed_projects}. "
             msg += f"Incorrect Supervisely format. Please, check your input data."
-        sly.logger.info(msg) if success_projects > 0 else sly.logger.warn(msg)
+        sly.logger.info(msg)
 
         if success_projects == 0 and projects_without_ann == 0:
             raise Exception(

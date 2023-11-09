@@ -364,7 +364,8 @@ def check_items(imgs_dir, ann_dir, meta):
     unwanted_ann_names = list(set(raw_ann_names) - set(res_ann_names))
     if len(unwanted_ann_names) > 0:
         sly.logger.warn(
-            f"Found {len(unwanted_ann_names)} annotation files without corresponding images: {unwanted_ann_names}. "
+            f"Found {len(unwanted_ann_names)} annotation files without corresponding images: "
+            f"{unwanted_ann_names}. Skipping."
         )
         for name in unwanted_ann_names:
             sly.fs.silent_remove(os.path.join(ann_dir, name))
