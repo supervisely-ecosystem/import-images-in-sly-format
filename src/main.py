@@ -41,8 +41,7 @@ def import_images_project(
             meta = sly.ProjectMeta.from_json(meta_json)
             project_items_cnt = 0
             invalid_datasets = []
-            project_list_dir = os.listdir(project_dir)
-            for dataset_dir in project_list_dir:
+            for dataset_dir in os.listdir(project_dir):
                 dataset_path = os.path.join(project_dir, dataset_dir)
                 imgs_dir = os.path.join(dataset_path, "img")
                 ann_dir = os.path.join(dataset_path, "ann")
