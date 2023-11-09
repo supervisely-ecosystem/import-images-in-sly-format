@@ -64,15 +64,18 @@ def search_projects(dir_path):
     if meta_exists:
         try:
             meta_path = os.path.join(dir_path, "meta.json")
+            try:
+                with open(meta_path, encoding="utf-8") as fin:
+                    meta_json = json.load(fin)
+            except json.decoder.JSONDecodeError as e:
+                sly.logger.error(
+                    f"Can not decode meta.json file with path {meta_path}: {e.msg} at "
+                    f"line number: {e.lineno}, column: {e.colno}, position: {e.pos}. ",
+                    exc_info=False,
+                )
+                return False
             meta_json = sly.json.load_json_file(meta_path)
             meta = sly.ProjectMeta.from_json(meta_json)
-        except json.decoder.JSONDecodeError as e:
-            sly.logger.error(
-                f"Can not decode meta.json file with path {meta_path}: {e.msg} at "
-                f"line number: {e.lineno}, column: {e.colno}, position: {e.pos}. ",
-                exc_info=False,
-            )
-            return False
         except Exception as e:
             sly.logger.error(
                 f"Incorrect meta.json file in {dir_path}. \nError: {e}",
@@ -343,6 +346,7 @@ def upload_only_images(api: sly.Api, img_dirs: list, recursively: bool = False):
     else:
         api.project.remove(project.id)
         return None
+    project = api.project.get_info_by_id(project.id)
     return project
 
 
