@@ -30,6 +30,7 @@ sly.logger.debug(
     f"INPUT_DIR: {INPUT_DIR}, INPUT_FILE: {INPUT_FILE}, EXTERNAL_LINK=f{EXTERNAL_LINK}"
 )
 
+IS_ON_AGENT = False
 if INPUT_DIR:
     IS_ON_AGENT = api.file.is_on_agent(INPUT_DIR)
 elif INPUT_FILE:
