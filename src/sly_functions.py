@@ -223,7 +223,11 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
 
         input_path = os.path.join(save_path, get_file_name(cur_files_path))
         if not is_archive(save_archive_path):
-            raise Exception(f"Downloaded file is not archive. Path: {save_archive_path}")
+            sly.logger.warn(
+                f"Unsupported file extension ({save_archive_path}). \n"
+                "Please, upload the data as directory or archive (.tar, .tar.gz or .zip)."
+            )
+            raise Exception(f"Downloaded file has unsupported extension. Read the app overview.")
         sly.fs.unpack_archive(save_archive_path, input_path)
         sly.logger.debug(f"Unpacked archive {save_archive_path} to {input_path}.")
         silent_remove(save_archive_path)
