@@ -79,7 +79,7 @@ def search_projects(dir_path):
         except Exception as e:
             sly.logger.error(
                 f"Incorrect meta.json file in {dir_path}. \nError: {repr(e)}",
-                exc_info=True,
+                exc_info=False,
             )
             return False
     datasets = [f for f in files if sly.fs.dir_exists(os.path.join(dir_path, f))]
