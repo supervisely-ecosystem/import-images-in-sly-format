@@ -78,7 +78,7 @@ def search_projects(dir_path):
             meta = sly.ProjectMeta.from_json(meta_json)
         except Exception as e:
             sly.logger.error(
-                f"Incorrect meta.json file in {dir_path}. \nError: {e}",
+                f"Incorrect meta.json file in {dir_path}. \nError: {repr(e)}",
                 exc_info=False,
             )
             return False

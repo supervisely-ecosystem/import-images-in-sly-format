@@ -41,18 +41,24 @@ def import_images_project(
             meta = sly.ProjectMeta.from_json(meta_json)
             project_items_cnt = 0
             invalid_datasets = []
+            ds_cnt = len(os.listdir(project_dir))
             for dataset_dir in os.listdir(project_dir):
                 dataset_path = os.path.join(project_dir, dataset_dir)
                 imgs_dir = os.path.join(dataset_path, "img")
                 ann_dir = os.path.join(dataset_path, "ann")
                 if not sly.fs.dir_exists(dataset_path):
+                    ds_cnt -= 1
                     continue
-                if (
-                    len(os.listdir(dataset_path)) == 0
-                    or not sly.fs.dir_exists(imgs_dir)
-                    or len(os.listdir(imgs_dir)) == 0
-                ):
+                if len(os.listdir(dataset_path)) == 0:
                     sly.fs.remove_dir(dataset_path)
+                    ds_cnt -= 1
+                    continue
+                if not sly.fs.dir_exists(imgs_dir):
+                    invalid_datasets.append(dataset_path)
+                    continue
+                if len(os.listdir(imgs_dir)) == 0:
+                    sly.fs.remove_dir(dataset_path)
+                    ds_cnt -= 1
                     continue
                 if not sly.fs.dir_exists(ann_dir):
                     sly.fs.mkdir(ann_dir)
@@ -79,37 +85,41 @@ def import_images_project(
                 failed_projects += 1
                 continue
 
-            try:
-                # find projects again, because some datasets may be already uploaded and removed
-                for project_dir in sly.fs.dirs_filter(project_dir, f.search_projects):
-                    progress_project_cb = f.get_progress_cb(
-                        api, task_id, f"Uploading project: {project_name}", project_items_cnt * 2
-                    )
-
-                    sly.logger.info(f"Start uploading project '{project_name}'...")
-
-                    sly.upload_project(
-                        dir=project_dir,
-                        api=api,
-                        workspace_id=g.WORKSPACE_ID,
-                        project_name=project_name,
-                        progress_cb=progress_project_cb,
-                    )
-
-                    sly.logger.info(f"Project '{project_name}' uploaded successfully.")
-                    success_projects += 1
-            except Exception as e:
+            if ds_cnt > len(invalid_datasets):
                 try:
-                    project = sly.project.read_single_project(project_dir)
-                    sly.logger.warn(f"Project '{project_name}' uploading failed: {str(e)}.")
-                    project = f.upload_only_images(
-                        api, [ds.item_dir for ds in project.datasets], recursively=True
-                    )
-                    if project is None:
-                        raise Exception
+                    # find projects again, because some datasets may be already uploaded and removed
+                    for project_dir in sly.fs.dirs_filter(project_dir, f.search_projects):
+                        progress_project_cb = f.get_progress_cb(
+                            api,
+                            task_id,
+                            f"Uploading project: {project_name}",
+                            project_items_cnt * 2,
+                        )
+
+                        sly.logger.info(f"Start uploading project '{project_name}'...")
+
+                        sly.upload_project(
+                            dir=project_dir,
+                            api=api,
+                            workspace_id=g.WORKSPACE_ID,
+                            project_name=project_name,
+                            progress_cb=progress_project_cb,
+                        )
+
+                        sly.logger.info(f"Project '{project_name}' uploaded successfully.")
+                        success_projects += 1
                 except Exception as e:
-                    failed_projects += 1
-                    sly.logger.warn(f"Not found images in the directory '{project_dir}'.")
+                    try:
+                        project = sly.project.read_single_project(project_dir)
+                        sly.logger.warn(f"Project '{project_name}' uploading failed: {str(e)}.")
+                        project = f.upload_only_images(
+                            api, [ds.item_dir for ds in project.datasets], recursively=True
+                        )
+                        if project is None:
+                            raise Exception
+                    except Exception as e:
+                        failed_projects += 1
+                        sly.logger.warn(f"Not found images in the directory '{project_dir}'.")
 
         total = success_projects + projects_without_ann + failed_projects
         msg = f"SUMMARY: \n    Toral processed projects: {total}. "
