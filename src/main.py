@@ -117,6 +117,7 @@ def import_images_project(
                         )
                         if project is None:
                             raise Exception
+                        projects_without_ann += 1
                     except Exception as e:
                         failed_projects += 1
                         sly.logger.warn(f"Not found images in the directory '{project_dir}'.")
