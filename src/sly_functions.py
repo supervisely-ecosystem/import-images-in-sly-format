@@ -1,22 +1,24 @@
 import functools
-import os
 import json
-from os.path import basename, dirname, normpath
-import requests
-from typing import Callable, List
+import os
+import time
 from collections import defaultdict
+from os.path import basename, dirname, normpath
+from typing import Callable, List
 
+import requests
 import supervisely as sly
+from supervisely.annotation.annotation import AnnotationJsonFields
 from supervisely.io.fs import (
-    get_file_name_with_ext,
-    silent_remove,
+    download,
+    file_exists,
     get_file_ext,
     get_file_name,
-    file_exists,
-    download,
+    get_file_name_with_ext,
     mkdir,
+    silent_remove,
 )
-from supervisely.annotation.annotation import AnnotationJsonFields
+from tqdm import tqdm
 
 import sly_globals as g
 
@@ -56,6 +58,59 @@ def download_file_from_link(link, file_name, archive_path, progress_message, app
             f"Please, try again later."
         )
     app_logger.info(f"{file_name} has been successfully downloaded")
+
+
+def download_file_from_dropbox(shared_link: str, destination_path, progress_message, app_logger):
+    retry_attemp = 0
+    timeout = 10
+
+    total_size = None
+
+    while True:
+        try:
+            with open(destination_path, "ab") as file:
+                response = requests.get(
+                    shared_link,
+                    stream=True,
+                    headers={"Range": f"bytes={file.tell()}-"},
+                    timeout=timeout,
+                )
+                if total_size is None:
+                    total_size = int(response.headers.get("content-length", 0))
+                    progress_bar = tqdm(
+                        desc=progress_message,
+                        total=total_size,
+                        is_size=True,
+                    )
+                app_logger.info("Connection established")
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        retry_attemp = 0
+                        file.write(chunk)
+                        progress_bar.update(len(chunk))
+        except requests.exceptions.RequestException as e:
+            retry_attemp += 1
+            if timeout < 90:
+                timeout += 10
+            if retry_attemp == 9:
+                raise e
+            app_logger.warning(
+                f"Downloading request error, please wait ... Retrying ({retry_attemp}/8)"
+            )
+            if retry_attemp <= 4:
+                time.sleep(5)
+            elif 4 < retry_attemp < 9:
+                time.sleep(10)
+        except Exception as e:
+            retry_attemp += 1
+            if retry_attemp == 3:
+                raise e
+            app_logger.warning(f"Error: {str(e)}. Retrying ({retry_attemp}/2")
+
+        else:
+            filename = get_file_name(destination_path)
+            app_logger.info(f"{filename} downloaded successfully")
+            break
 
 
 def search_projects(dir_path):
@@ -239,18 +294,27 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
         if not os.path.exists(proj_path):
             mkdir(proj_path, True)
         save_archive_path = os.path.join(proj_path, file_name)
-        download_file_from_link(
-            link=remote_path,
-            file_name=file_name,
-            archive_path=save_archive_path,
-            progress_message=f"Downloading archive from link",
-            app_logger=g.my_app.logger,
-        )
+        if remote_path.startswith("https://www.dropbox.com/"):
+            download_file_from_dropbox(
+                remote_path,
+                save_archive_path,
+                f"Downloading archive from link",
+                g.my_app.logger,
+            )
+        else:
+            download_file_from_link(
+                link=remote_path,
+                file_name=file_name,
+                archive_path=save_archive_path,
+                progress_message=f"Downloading archive from link",
+                app_logger=g.my_app.logger,
+            )
         input_path = os.path.join(save_path, get_file_name(proj_path))
         if not is_archive(save_archive_path):
             raise Exception(f"Downloaded file is not archive. Path: {save_archive_path}")
         try:
             sly.fs.unpack_archive(save_archive_path, input_path)
+            # TODO Detecting multi-part archives in the main archive and unpacking them
         except Exception as e:
             raise Exception(f"Failed to read dataset archive file. Please try again. Error: {e}")
         sly.logger.debug(f"Unpacked archive {save_archive_path} to {input_path}.")
