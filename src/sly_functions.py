@@ -7,8 +7,12 @@ from os.path import basename, dirname, normpath
 from typing import Callable, List
 
 import requests
+from tqdm import tqdm
+
+import sly_globals as g
 import supervisely as sly
 from supervisely.annotation.annotation import AnnotationJsonFields
+from supervisely.annotation.label import LabelJsonFields
 from supervisely.io.fs import (
     download,
     file_exists,
@@ -18,9 +22,6 @@ from supervisely.io.fs import (
     mkdir,
     silent_remove,
 )
-from tqdm import tqdm
-
-import sly_globals as g
 
 
 def update_progress(count, api: sly.Api, task_id: int, progress: sly.Progress) -> None:
@@ -418,7 +419,7 @@ def upload_only_images(api: sly.Api, img_dirs: list, recursively: bool = False):
     return project
 
 
-def check_items(imgs_dir, ann_dir, meta):
+def check_items(imgs_dir, ann_dir, meta, keep_classes, remove_classes):
     items_cnt = 0
     failed_ann_names = defaultdict(list)
     img_names = [name for name in os.listdir(imgs_dir) if sly.image.has_valid_ext(name)]
@@ -428,23 +429,30 @@ def check_items(imgs_dir, ann_dir, meta):
         try:
             ann_name = get_effective_ann_name(img_name, raw_ann_names)
             try:
+                need_to_filter = False
                 if ann_name is None:
                     raise Exception("Annotation file not found")
-                with open(os.path.join(ann_dir, ann_name)) as ann_file:
+                ann_path = os.path.join(ann_dir, ann_name)
+                with open(ann_path) as ann_file:
                     data = json.load(ann_file)
                     for field in g.REQUIRED_FIELDS:
                         if field not in data:
                             raise Exception(f"No '{field}' field in annotation file")
                     for label_json in data.get(AnnotationJsonFields.LABELS):
+                        if label_json.get(LabelJsonFields.OBJ_CLASS_NAME) in remove_classes:
+                            need_to_filter = True
                         sly.Label.from_json(label_json, meta)
-
+                if need_to_filter:
+                    ann = sly.Annotation.load_json_file(ann_path, meta)
+                    ann = ann.filter_labels_by_classes(keep_classes)
+                    sly.json.dump_json_file(ann.to_json(), ann_path)
             except Exception as e:
                 ann_name = create_empty_ann(imgs_dir, img_name, ann_dir)
                 failed_ann_names[e.args[0]].append(ann_name)
             items_cnt += 1
             res_ann_names.append(ann_name)
         except Exception as e:
-            pass
+            sly.logger.warn(f"Failed to process annotation for '{img_name}': {repr(e)}. Skipping.")
 
     if len(failed_ann_names) > 0:
         for error, ann_names in failed_ann_names.items():
