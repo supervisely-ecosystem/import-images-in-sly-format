@@ -1,13 +1,11 @@
 import json
 import os
-
 from collections import defaultdict
-
-import supervisely as sly
-from supervisely.annotation.annotation import AnnotationJsonFields
 
 import sly_functions as f
 import sly_globals as g
+import supervisely as sly
+from supervisely.annotation.annotation import AnnotationJsonFields
 
 
 @g.my_app.callback("import-images-project")
@@ -37,8 +35,22 @@ def import_images_project(
                 project_name = g.PROJECT_NAME
             sly.logger.info(f"Working with directory '{project_dir}'.")
 
-            meta_json = sly.json.load_json_file(os.path.join(project_dir, "meta.json"))
+            meta_path = os.path.join(project_dir, "meta.json")
+            meta_json = sly.json.load_json_file(meta_path)
             meta = sly.ProjectMeta.from_json(meta_json)
+
+            keep_classes = []
+            remove_classes = []
+            for obj_cls in meta.obj_classes:
+                if obj_cls.geometry_type != sly.Cuboid:
+                    keep_classes.append(obj_cls.name)
+                else:
+                    sly.logger.warn(
+                        f"Class {obj_cls.name} has unsupported geometry type {obj_cls.geometry_type.name()}. "
+                        f"Class will be removed from meta and all annotations."
+                    )
+                    remove_classes.append(obj_cls.name)
+
             project_items_cnt = 0
             invalid_datasets = []
             ds_cnt = len(os.listdir(project_dir))
@@ -63,12 +75,12 @@ def import_images_project(
                 if not sly.fs.dir_exists(ann_dir):
                     sly.fs.mkdir(ann_dir)
 
-                dataset_items_cnt = f.check_items(imgs_dir, ann_dir, meta)
-                if dataset_items_cnt == 0:
+                ds_items_cnt = f.check_items(imgs_dir, ann_dir, meta, keep_classes, remove_classes)
+                if ds_items_cnt == 0:
                     invalid_datasets.append(dataset_path)
                     continue
                 else:
-                    project_items_cnt += dataset_items_cnt
+                    project_items_cnt += ds_items_cnt
 
             if len(invalid_datasets) > 0:
                 sly.logger.warn(
@@ -84,6 +96,11 @@ def import_images_project(
                 sly.logger.warn(f"Not found images in the directory '{project_dir}'.")
                 failed_projects += 1
                 continue
+
+            if len(remove_classes) > 0:
+                meta = meta.delete_obj_classes(remove_classes)
+                sly.logger.info(f"Meta was updated. Removed classes: {remove_classes}.")
+                sly.json.dump_json_file(meta.to_json(), meta_path)
 
             if ds_cnt > len(invalid_datasets):
                 try:
@@ -158,4 +175,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sly.main_wrapper("main", main)
+    sly.main_wrapper("main", main, log_for_agent=False)
