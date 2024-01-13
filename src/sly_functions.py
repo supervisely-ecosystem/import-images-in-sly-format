@@ -467,12 +467,11 @@ def check_items(imgs_dir, ann_dir, meta, keep_classes, remove_classes):
             )
 
     if len(failed_ann_names) > 0:
+        sly.logger.warn(f"Incorrect Supervisely JSON annotations format:")
         for error, ann_names in failed_ann_names.items():
-            sly.logger.warn(
-                f"JSON annotation file error: {error} occurred for {len(ann_names)} items: {ann_names}. "
-            )
+            sly.logger.warn(f" - for {len(ann_names)} items: {ann_names}. ")
             sly.logger.warn(error_to_trace[error])
-            sly.logger.info("These items will be skipped.")
+        sly.logger.info("These items will be skipped.")
 
     unwanted_ann_names = list(set(raw_ann_names) - set(res_ann_names))
     if len(unwanted_ann_names) > 0:
