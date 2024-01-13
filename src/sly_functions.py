@@ -2,6 +2,7 @@ import functools
 import json
 import os
 import time
+import traceback
 from collections import defaultdict
 from os.path import basename, dirname, normpath
 from typing import Callable, List
@@ -422,6 +423,7 @@ def upload_only_images(api: sly.Api, img_dirs: list, recursively: bool = False):
 def check_items(imgs_dir, ann_dir, meta, keep_classes, remove_classes):
     items_cnt = 0
     failed_ann_names = defaultdict(list)
+    error_to_trace = defaultdict(str)
     img_names = [name for name in os.listdir(imgs_dir) if sly.image.has_valid_ext(name)]
     raw_ann_names = [name for name in os.listdir(ann_dir) if get_file_ext(name) == g.ANN_EXT]
     res_ann_names = []
@@ -449,17 +451,23 @@ def check_items(imgs_dir, ann_dir, meta, keep_classes, remove_classes):
             except Exception as e:
                 ann_name = create_empty_ann(imgs_dir, img_name, ann_dir)
                 failed_ann_names[e.args[0]].append(ann_name)
+                error_to_trace[e.args[0]] = traceback.format_exc()
             items_cnt += 1
             res_ann_names.append(ann_name)
         except Exception as e:
-            sly.logger.warn(f"Failed to process annotation for '{img_name}': {repr(e)}. Skipping.")
+            sly.logger.warn(
+                f"Failed to process annotation for '{img_name}': {repr(e)}. Skipping.",
+                exc_info=True,
+            )
 
     if len(failed_ann_names) > 0:
         for error, ann_names in failed_ann_names.items():
             sly.logger.warn(
-                f"[{error}] error occurred for {len(ann_names)} items: {ann_names}. "
-                "Created empty annotation files for them."
+                f"JSON annotation file error: {error} occurred for {len(ann_names)} items: {ann_names}. "
             )
+            sly.logger.warn(error_to_trace[error])
+            sly.logger.info("These items will be skipped.")
+
     unwanted_ann_names = list(set(raw_ann_names) - set(res_ann_names))
     if len(unwanted_ann_names) > 0:
         sly.logger.warn(
