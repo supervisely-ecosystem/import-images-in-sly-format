@@ -440,7 +440,13 @@ def check_items(imgs_dir, ann_dir, meta, keep_classes, remove_classes):
                     for field in g.REQUIRED_FIELDS:
                         if field not in data:
                             raise Exception(f"No '{field}' field in annotation file")
-                    for label_json in data.get(AnnotationJsonFields.LABELS):
+                        objs_list = data.get(AnnotationJsonFields.LABELS)
+                        objs_list_type = type(objs_list)
+                    if objs_list_type is None:
+                        raise Exception("No 'objects' field in annotation file")
+                    if objs_list_type is not list:
+                        raise Exception(f"'objects' field must be a list, not a {objs_list_type}")
+                    for label_json in objs_list:
                         if label_json.get(LabelJsonFields.OBJ_CLASS_NAME) in remove_classes:
                             need_to_filter = True
                         sly.Label.from_json(label_json, meta)
