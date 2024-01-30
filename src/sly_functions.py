@@ -437,6 +437,10 @@ def check_items(imgs_dir, ann_dir, meta, keep_classes, remove_classes):
                 ann_path = os.path.join(ann_dir, ann_name)
                 with open(ann_path) as ann_file:
                     data = json.load(ann_file)
+                    if not isinstance(data[AnnotationJsonFields.LABELS], list):
+                        raise Exception("'objects' field must have a list type (list of dicts)")
+                    if not isinstance(data[AnnotationJsonFields.IMG_TAGS], list):
+                        raise Exception("'tags' field must have a list type (list of dicts)")
                     for field in g.REQUIRED_FIELDS:
                         if field not in data:
                             raise Exception(f"No '{field}' field in annotation file")
