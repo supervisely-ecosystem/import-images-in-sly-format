@@ -67,6 +67,7 @@ def download_file_from_dropbox(shared_link: str, destination_path, progress_mess
     timeout = 10
 
     total_size = None
+    progress_bar = None
 
     while True:
         try:
@@ -82,14 +83,15 @@ def download_file_from_dropbox(shared_link: str, destination_path, progress_mess
                     progress_bar = tqdm(
                         desc=progress_message,
                         total=total_size,
-                        is_size=True,
+                        unit="B",
+                        unit_scale=True,
                     )
                 app_logger.info("Connection established")
                 for chunk in response.iter_content(chunk_size=8192):
                     if chunk:
-                        retry_attemp = 0
                         file.write(chunk)
                         progress_bar.update(len(chunk))
+                        retry_attemp = 0
         except requests.exceptions.RequestException as e:
             retry_attemp += 1
             if timeout < 90:
@@ -107,7 +109,7 @@ def download_file_from_dropbox(shared_link: str, destination_path, progress_mess
             retry_attemp += 1
             if retry_attemp == 3:
                 raise e
-            app_logger.warning(f"Error: {str(e)}. Retrying ({retry_attemp}/2")
+            app_logger.warning(f"Error: {str(e)}. Retrying ({retry_attemp}/2)")
 
         else:
             filename = get_file_name(destination_path)
