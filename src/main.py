@@ -1,11 +1,9 @@
-import json
 import os
-from collections import defaultdict
+
+import supervisely as sly
 
 import sly_functions as f
 import sly_globals as g
-import supervisely as sly
-from supervisely.annotation.annotation import AnnotationJsonFields
 
 
 @g.my_app.callback("import-images-project")
@@ -14,9 +12,8 @@ def import_images_project(
     api: sly.Api, task_id: int, context: dict, state: dict, app_logger
 ) -> None:
     project_dirs, only_images = f.download_data(api=api, task_id=task_id, save_path=g.STORAGE_DIR)
-
     if len(project_dirs) == 0 and len(only_images) == 0:
-        raise Exception(f"Not found any images for import. Please, check your input data.")
+        raise Exception("Not found any images for import. Please, check your input data.")
 
     if len(project_dirs) > 0:
         sly.logger.info(
@@ -34,6 +31,20 @@ def import_images_project(
             else:
                 project_name = g.PROJECT_NAME
             sly.logger.info(f"Working with directory '{project_dir}'.")
+
+            try:
+                project_fs = sly.Project(project_dir, sly.OpenMode.READ)
+                sly.logger.info(f"Successfully opened project {project_fs.name} from {project_dir}")
+                project_fs.upload(project_dir, api, g.WORKSPACE_ID, project_name)
+                sly.logger.info(f"Project {project_name} uploaded successfully.")
+                success_projects += 1
+                continue
+            except Exception as e:
+                sly.logger.info(
+                    f"Failed to upload project {project_name} from {project_dir} using "
+                    f"sly.Project.upload: {e}"
+                    "Will try to upload images and annotations separately."
+                )
 
             meta_path = os.path.join(project_dir, "meta.json")
             meta_json = sly.json.load_json_file(meta_path)
@@ -135,7 +146,7 @@ def import_images_project(
                         if project is None:
                             raise Exception
                         projects_without_ann += 1
-                    except Exception as e:
+                    except Exception:
                         failed_projects += 1
                         sly.logger.warn(f"Not found images in the directory '{project_dir}'.")
 
@@ -147,12 +158,12 @@ def import_images_project(
             msg += f"({projects_without_ann} projects without annotations)."
         if failed_projects > 0:
             msg += f"\n    Failed to upload projects: {failed_projects}."
-            msg += f"Incorrect Supervisely format. Please, check your input data."
+            msg += "Incorrect Supervisely format. Please, check your input data."
         sly.logger.info(msg)
 
         if success_projects == 0 and projects_without_ann == 0:
             raise Exception(
-                f"Failed to import data. Not found images or projects in Supervisely format."
+                "Failed to import data. Not found images or projects in Supervisely format."
             )
 
     elif len(only_images) > 0:
@@ -162,7 +173,7 @@ def import_images_project(
         )
         project = f.upload_only_images(api, only_images)
         if project is None:
-            raise Exception(f"Failed to import data. Not found images.")
+            raise Exception("Failed to import data. Not found images.")
 
     g.my_app.stop()
 
