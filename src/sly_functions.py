@@ -8,9 +8,6 @@ from os.path import basename, dirname, normpath
 from typing import Callable, List
 
 import requests
-from tqdm import tqdm
-
-import sly_globals as g
 import supervisely as sly
 from supervisely.annotation.annotation import AnnotationJsonFields
 from supervisely.annotation.label import LabelJsonFields
@@ -23,6 +20,9 @@ from supervisely.io.fs import (
     mkdir,
     silent_remove,
 )
+from tqdm import tqdm
+
+import sly_globals as g
 
 
 def update_progress(count, api: sly.Api, task_id: int, progress: sly.Progress) -> None:
@@ -288,7 +288,7 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
             )
             raise Exception(f"Downloaded file has unsupported extension. Read the app overview.")
         sly.fs.unpack_archive(save_archive_path, input_path)
-        sly.logger.debug(f"Unpacked archive {save_archive_path} to {input_path}.")
+        sly.logger.info(f"Unpacked archive {save_archive_path} to {input_path}.")
         silent_remove(save_archive_path)
 
     elif g.EXTERNAL_LINK is not None:
