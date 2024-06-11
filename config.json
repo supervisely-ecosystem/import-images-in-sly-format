@@ -6,7 +6,7 @@
     "images"
   ],
   "description": "Images with corresponding annotations",
-  "docker_image": "supervisely/import-export:6.73.93",
+  "docker_image": "supervisely/import-export:6.73.104",
   "main_script": "src/main.py",
   "task_location": "workspace_tasks",
   "icon": "https://i.imgur.com/lmbzQd0.png",
