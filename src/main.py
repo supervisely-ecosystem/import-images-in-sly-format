@@ -17,6 +17,9 @@ def import_images_project(
 ) -> None:
     project_dirs, only_images = f.download_data(api=api, task_id=task_id, save_path=g.STORAGE_DIR)
 
+    if g.INPUT_DIR is not None:
+        api.app.add_input_folder(g.INPUT_DIR)
+
     if len(project_dirs) == 0 and len(only_images) == 0:
         raise Exception(f"Not found any images for import. Please, check your input data.")
 
@@ -146,6 +149,9 @@ def import_images_project(
         project = f.upload_only_images(api, only_images)
         if project is None:
             raise Exception(f"Failed to import data. Not found images.")
+
+    if project:
+        api.app.add_output_project(project.id)
 
     g.my_app.stop()
 
