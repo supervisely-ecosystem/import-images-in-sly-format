@@ -17,9 +17,6 @@ def import_images_project(
 ) -> None:
     project_dirs, only_images = f.download_data(api=api, task_id=task_id, save_path=g.STORAGE_DIR)
 
-    # TODO if g.INPUT_DIR is not None:
-    # TODO     api.app.add_input_folder(g.INPUT_DIR)
-
     if len(project_dirs) == 0 and len(only_images) == 0:
         raise Exception(f"Not found any images for import. Please, check your input data.")
 
@@ -82,6 +79,7 @@ def import_images_project(
                 if project_without_ann is not None:
                     project_items_cnt += project_without_ann.items_count
                     projects_without_ann += 1
+                    api.app.add_output_project(project_without_ann)
 
             if project_items_cnt == 0:
                 sly.logger.warn(f"Not found images in the directory '{project_dir}'.")
@@ -120,6 +118,7 @@ def import_images_project(
                         )
                         if project is None:
                             raise Exception
+                        api.app.add_output_project(project)
                         projects_without_ann += 1
                     except Exception as e:
                         failed_projects += 1
@@ -149,6 +148,7 @@ def import_images_project(
         project = f.upload_only_images(api, only_images)
         if project is None:
             raise Exception(f"Failed to import data. Not found images.")
+        api.app.add_output_project(project)
 
     g.my_app.stop()
 
