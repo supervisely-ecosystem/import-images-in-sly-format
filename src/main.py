@@ -139,7 +139,7 @@ def import_images_project(
                         sly.logger.warn(f"Not found images in the directory '{project_dir}'.")
 
         total = success_projects + projects_without_ann + failed_projects
-        msg = f"SUMMARY: \n    Toral processed projects: {total}. "
+        msg = f"SUMMARY: \n    Total processed projects: {total}. "
         if success_projects + projects_without_ann > 0:
             msg += f"\n    Uploaded projects: {success_projects + projects_without_ann} "
         if projects_without_ann > 0:
