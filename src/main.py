@@ -35,9 +35,13 @@ def import_images_project(
             try:
                 project_fs = sly.Project(project_dir, sly.OpenMode.READ)
                 sly.logger.info(f"Successfully opened project {project_fs.name} from {project_dir}")
-                project_fs.upload(project_dir, api, g.WORKSPACE_ID, project_name)
+                project_id, _ = project_fs.upload(project_dir, api, g.WORKSPACE_ID, project_name)
                 sly.logger.info(f"Project {project_name} uploaded successfully.")
                 success_projects += 1
+                # -------------------------------------- Add Workflow Output ------------------------------------- #
+                g.workflow.add_output(project_id)
+                sly.logger.debug(f"Workflow Output: Successful project - {project_id}.")
+                # ----------------------------------------------- - ---------------------------------------------- #
                 continue
             except Exception as e:
                 sly.logger.info(
