@@ -1,7 +1,10 @@
 {
   "name": "Import images in Supervisely format",
   "type": "app",
-  "categories": ["import", "images"],
+  "categories": [
+    "import",
+    "images"
+  ],
   "description": "Images with corresponding annotations",
   "docker_image": "supervisely/import-export:6.73.123",
   "main_script": "src/main.py",
@@ -11,9 +14,14 @@
   "icon_cover": true,
   "headless": true,
   "min_agent_version": "6.7.4",
-  "min_instance_version": "6.8.48",
+  "min_instance_version": "6.9.22",
   "context_menu": {
     "context_category": "Import",
-    "target": ["files_folder", "files_file", "agent_folder", "agent_file"]
+    "target": [
+      "files_folder",
+      "files_file",
+      "agent_folder",
+      "agent_file"
+    ]
   }
 }

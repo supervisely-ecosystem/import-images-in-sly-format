@@ -1,10 +1,6 @@
-import json
 import os
 
-from collections import defaultdict
-
 import supervisely as sly
-from supervisely.annotation.annotation import AnnotationJsonFields
 
 import sly_functions as f
 import sly_globals as g
@@ -16,9 +12,8 @@ def import_images_project(
     api: sly.Api, task_id: int, context: dict, state: dict, app_logger
 ) -> None:
     project_dirs, only_images = f.download_data(api=api, task_id=task_id, save_path=g.STORAGE_DIR)
-
     if len(project_dirs) == 0 and len(only_images) == 0:
-        raise Exception(f"Not found any images for import. Please, check your input data.")
+        raise Exception("Not found any images for import. Please, check your input data.")
 
     if len(project_dirs) > 0:
         sly.logger.info(
@@ -37,8 +32,36 @@ def import_images_project(
                 project_name = g.PROJECT_NAME
             sly.logger.info(f"Working with directory '{project_dir}'.")
 
-            meta_json = sly.json.load_json_file(os.path.join(project_dir, "meta.json"))
+            try:
+                project_fs = sly.Project(project_dir, sly.OpenMode.READ)
+                sly.logger.info(f"Successfully opened project {project_fs.name} from {project_dir}")
+                project_fs.upload(project_dir, api, g.WORKSPACE_ID, project_name)
+                sly.logger.info(f"Project {project_name} uploaded successfully.")
+                success_projects += 1
+                continue
+            except Exception as e:
+                sly.logger.info(
+                    f"Failed to upload project {project_name} from {project_dir} using "
+                    f"sly.Project.upload: {e}"
+                    "Will try to upload images and annotations separately."
+                )
+
+            meta_path = os.path.join(project_dir, "meta.json")
+            meta_json = sly.json.load_json_file(meta_path)
             meta = sly.ProjectMeta.from_json(meta_json)
+
+            keep_classes = []
+            remove_classes = []
+            for obj_cls in meta.obj_classes:
+                if obj_cls.geometry_type != sly.Cuboid:
+                    keep_classes.append(obj_cls.name)
+                else:
+                    sly.logger.warn(
+                        f"Class {obj_cls.name} has unsupported geometry type {obj_cls.geometry_type.name()}. "
+                        f"Class will be removed from meta and all annotations."
+                    )
+                    remove_classes.append(obj_cls.name)
+
             project_items_cnt = 0
             invalid_datasets = []
             ds_cnt = len(os.listdir(project_dir))
@@ -63,12 +86,12 @@ def import_images_project(
                 if not sly.fs.dir_exists(ann_dir):
                     sly.fs.mkdir(ann_dir)
 
-                dataset_items_cnt = f.check_items(imgs_dir, ann_dir, meta)
-                if dataset_items_cnt == 0:
+                ds_items_cnt = f.check_items(imgs_dir, ann_dir, meta, keep_classes, remove_classes)
+                if ds_items_cnt == 0:
                     invalid_datasets.append(dataset_path)
                     continue
                 else:
-                    project_items_cnt += dataset_items_cnt
+                    project_items_cnt += ds_items_cnt
 
             if len(invalid_datasets) > 0:
                 sly.logger.warn(
@@ -90,6 +113,11 @@ def import_images_project(
                 sly.logger.warn(f"Not found images in the directory '{project_dir}'.")
                 failed_projects += 1
                 continue
+
+            if len(remove_classes) > 0:
+                meta = meta.delete_obj_classes(remove_classes)
+                sly.logger.info(f"Meta was updated. Removed classes: {remove_classes}.")
+                sly.json.dump_json_file(meta.to_json(), meta_path)
 
             if ds_cnt > len(invalid_datasets):
                 try:
@@ -134,7 +162,7 @@ def import_images_project(
                         )
                         # ----------------------------------------------- - ---------------------------------------------- #
                         projects_without_ann += 1
-                    except Exception as e:
+                    except Exception:
                         failed_projects += 1
                         sly.logger.warn(f"Not found images in the directory '{project_dir}'.")
 
@@ -146,12 +174,12 @@ def import_images_project(
             msg += f"({projects_without_ann} projects without annotations)."
         if failed_projects > 0:
             msg += f"\n    Failed to upload projects: {failed_projects}."
-            msg += f"Incorrect Supervisely format. Please, check your input data."
+            msg += "Incorrect Supervisely format. Please, check your input data."
         sly.logger.info(msg)
 
         if success_projects == 0 and projects_without_ann == 0:
             raise Exception(
-                f"Failed to import data. Not found images or projects in Supervisely format."
+                "Failed to import data. Not found images or projects in Supervisely format."
             )
 
     elif len(only_images) > 0:
@@ -161,11 +189,12 @@ def import_images_project(
         )
         project = f.upload_only_images(api, only_images)
         if project is None:
-            raise Exception(f"Failed to import data. Not found images.")
+            raise Exception("Failed to import data. Not found images.")
         # -------------------------------------- Add Workflow Output ------------------------------------- #
         g.workflow.add_output(project.id)
         sly.logger.debug(f"Workflow Output: Project only images - {project.id}.")
         # ----------------------------------------------- - ---------------------------------------------- #
+
     g.my_app.stop()
 
 
@@ -177,4 +206,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sly.main_wrapper("main", main)
+    sly.main_wrapper("main", main, log_for_agent=False)

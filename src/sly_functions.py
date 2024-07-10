@@ -1,22 +1,26 @@
 import functools
-import os
 import json
-from os.path import basename, dirname, normpath
-import requests
-from typing import Callable, List
+import os
+import time
+import traceback
 from collections import defaultdict
+from os.path import basename, dirname, normpath
+from typing import Callable, List
 
+import requests
 import supervisely as sly
+from supervisely.annotation.annotation import AnnotationJsonFields
+from supervisely.annotation.label import LabelJsonFields
 from supervisely.io.fs import (
-    get_file_name_with_ext,
-    silent_remove,
+    download,
+    file_exists,
     get_file_ext,
     get_file_name,
-    file_exists,
-    download,
+    get_file_name_with_ext,
     mkdir,
+    silent_remove,
 )
-from supervisely.annotation.annotation import AnnotationJsonFields
+from tqdm import tqdm
 
 import sly_globals as g
 
@@ -56,6 +60,61 @@ def download_file_from_link(link, file_name, archive_path, progress_message, app
             f"Please, try again later."
         )
     app_logger.info(f"{file_name} has been successfully downloaded")
+
+
+def download_file_from_dropbox(shared_link: str, destination_path, progress_message, app_logger):
+    retry_attemp = 0
+    timeout = 10
+
+    total_size = None
+    progress_bar = None
+
+    while True:
+        try:
+            with open(destination_path, "ab") as file:
+                response = requests.get(
+                    shared_link,
+                    stream=True,
+                    headers={"Range": f"bytes={file.tell()}-"},
+                    timeout=timeout,
+                )
+                if total_size is None:
+                    total_size = int(response.headers.get("content-length", 0))
+                    progress_bar = tqdm(
+                        desc=progress_message,
+                        total=total_size,
+                        unit="B",
+                        unit_scale=True,
+                    )
+                app_logger.info("Connection established")
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        file.write(chunk)
+                        progress_bar.update(len(chunk))
+                        retry_attemp = 0
+        except requests.exceptions.RequestException as e:
+            retry_attemp += 1
+            if timeout < 90:
+                timeout += 10
+            if retry_attemp == 9:
+                raise e
+            app_logger.warning(
+                f"Downloading request error, please wait ... Retrying ({retry_attemp}/8)"
+            )
+            if retry_attemp <= 4:
+                time.sleep(5)
+            elif 4 < retry_attemp < 9:
+                time.sleep(10)
+        except Exception as e:
+            retry_attemp += 1
+            if retry_attemp == 3:
+                raise e
+            app_logger.warning(f"Error: {str(e)}. Retrying ({retry_attemp}/2)")
+
+        else:
+            filename = get_file_name(destination_path)
+            app_logger.info(f"{filename} downloaded successfully")
+            break
 
 
 def search_projects(dir_path):
@@ -229,7 +288,7 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
             )
             raise Exception(f"Downloaded file has unsupported extension. Read the app overview.")
         sly.fs.unpack_archive(save_archive_path, input_path)
-        sly.logger.debug(f"Unpacked archive {save_archive_path} to {input_path}.")
+        sly.logger.info(f"Unpacked archive {save_archive_path} to {input_path}.")
         silent_remove(save_archive_path)
 
     elif g.EXTERNAL_LINK is not None:
@@ -239,18 +298,27 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
         if not os.path.exists(proj_path):
             mkdir(proj_path, True)
         save_archive_path = os.path.join(proj_path, file_name)
-        download_file_from_link(
-            link=remote_path,
-            file_name=file_name,
-            archive_path=save_archive_path,
-            progress_message=f"Downloading archive from link",
-            app_logger=g.my_app.logger,
-        )
+        if remote_path.startswith("https://www.dropbox.com/"):
+            download_file_from_dropbox(
+                remote_path,
+                save_archive_path,
+                f"Downloading archive from link",
+                g.my_app.logger,
+            )
+        else:
+            download_file_from_link(
+                link=remote_path,
+                file_name=file_name,
+                archive_path=save_archive_path,
+                progress_message=f"Downloading archive from link",
+                app_logger=g.my_app.logger,
+            )
         input_path = os.path.join(save_path, get_file_name(proj_path))
         if not is_archive(save_archive_path):
             raise Exception(f"Downloaded file is not archive. Path: {save_archive_path}")
         try:
             sly.fs.unpack_archive(save_archive_path, input_path)
+            # TODO Detecting multi-part archives in the main archive and unpacking them
         except Exception as e:
             raise Exception(f"Failed to read dataset archive file. Please try again. Error: {e}")
         sly.logger.debug(f"Unpacked archive {save_archive_path} to {input_path}.")
@@ -354,9 +422,10 @@ def upload_only_images(api: sly.Api, img_dirs: list, recursively: bool = False):
     return project
 
 
-def check_items(imgs_dir, ann_dir, meta):
+def check_items(imgs_dir, ann_dir, meta, keep_classes, remove_classes):
     items_cnt = 0
     failed_ann_names = defaultdict(list)
+    error_to_trace = defaultdict(str)
     img_names = [name for name in os.listdir(imgs_dir) if sly.image.has_valid_ext(name)]
     raw_ann_names = [name for name in os.listdir(ann_dir) if get_file_ext(name) == g.ANN_EXT]
     res_ann_names = []
@@ -364,30 +433,54 @@ def check_items(imgs_dir, ann_dir, meta):
         try:
             ann_name = get_effective_ann_name(img_name, raw_ann_names)
             try:
+                need_to_filter = False
                 if ann_name is None:
                     raise Exception("Annotation file not found")
-                with open(os.path.join(ann_dir, ann_name)) as ann_file:
+                ann_path = os.path.join(ann_dir, ann_name)
+                with open(ann_path) as ann_file:
                     data = json.load(ann_file)
+                    if not isinstance(data[AnnotationJsonFields.LABELS], list):
+                        raise Exception("'objects' field must have a list type (list of dicts)")
+                    if not isinstance(data[AnnotationJsonFields.IMG_TAGS], list):
+                        raise Exception("'tags' field must have a list type (list of dicts)")
                     for field in g.REQUIRED_FIELDS:
                         if field not in data:
                             raise Exception(f"No '{field}' field in annotation file")
-                    for label_json in data.get(AnnotationJsonFields.LABELS):
+                        objs_list = data.get(AnnotationJsonFields.LABELS)
+                        objs_list_type = type(objs_list)
+                    if objs_list_type is None:
+                        raise Exception("No 'objects' field in annotation file")
+                    if objs_list_type is not list:
+                        raise Exception(f"'objects' field must be a list, not a {objs_list_type}")
+                    for label_json in objs_list:
+                        if label_json.get(LabelJsonFields.OBJ_CLASS_NAME) in remove_classes:
+                            need_to_filter = True
                         sly.Label.from_json(label_json, meta)
-
+                if need_to_filter:
+                    ann = sly.Annotation.load_json_file(ann_path, meta)
+                    ann = ann.filter_labels_by_classes(keep_classes)
+                    sly.json.dump_json_file(ann.to_json(), ann_path)
             except Exception as e:
                 ann_name = create_empty_ann(imgs_dir, img_name, ann_dir)
                 failed_ann_names[e.args[0]].append(ann_name)
+                error_to_trace[e.args[0]] = traceback.format_exc()
             items_cnt += 1
             res_ann_names.append(ann_name)
         except Exception as e:
-            pass
+            sly.logger.warn(
+                f"Failed to process annotation for '{img_name}': {repr(e)}. Skipping.",
+                exc_info=True,
+            )
 
     if len(failed_ann_names) > 0:
+        sly.logger.warn(f"Incorrect Supervisely JSON annotations format:")
         for error, ann_names in failed_ann_names.items():
             sly.logger.warn(
-                f"[{error}] error occurred for {len(ann_names)} items: {ann_names}. "
-                "Created empty annotation files for them."
+                f" - following errors occurred for {len(ann_names)} items: {ann_names}. "
             )
+            sly.logger.warn(error_to_trace[error])
+        sly.logger.info("These items will be skipped.")
+
     unwanted_ann_names = list(set(raw_ann_names) - set(res_ann_names))
     if len(unwanted_ann_names) > 0:
         sly.logger.warn(
