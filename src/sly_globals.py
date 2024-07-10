@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from supervisely.io.fs import mkdir
 from supervisely.annotation.annotation import AnnotationJsonFields
 from supervisely.app.v1.app_service import AppService
+from workflow import Workflow
 
 if sly.is_development():
     load_dotenv("local.env")
@@ -12,6 +13,8 @@ if sly.is_development():
 
 api: sly.Api = sly.Api.from_env()
 my_app: AppService = AppService()
+
+workflow = Workflow(api)
 
 TEAM_ID = int(os.environ["context.teamId"])
 WORKSPACE_ID = int(os.environ["context.workspaceId"])

@@ -79,7 +79,12 @@ def import_images_project(
                 if project_without_ann is not None:
                     project_items_cnt += project_without_ann.items_count
                     projects_without_ann += 1
-                    api.app.add_output_project(project_without_ann)
+                    # -------------------------------------- Add Workflow Output ------------------------------------- #
+                    g.workflow.add_output(project_without_ann.id)
+                    sly.logger.debug(
+                        f"Workflow Output: Project without annotations - {project_without_ann.id}."
+                    )
+                    # ----------------------------------------------- - ---------------------------------------------- #
 
             if project_items_cnt == 0:
                 sly.logger.warn(f"Not found images in the directory '{project_dir}'.")
@@ -99,7 +104,7 @@ def import_images_project(
 
                         sly.logger.info(f"Start uploading project '{project_name}'...")
 
-                        sly.upload_project(
+                        project_id, _ = sly.upload_project(
                             dir=project_dir,
                             api=api,
                             workspace_id=g.WORKSPACE_ID,
@@ -109,6 +114,10 @@ def import_images_project(
 
                         sly.logger.info(f"Project '{project_name}' uploaded successfully.")
                         success_projects += 1
+                        # -------------------------------------- Add Workflow Output ------------------------------------- #
+                        g.workflow.add_output(project_id)
+                        sly.logger.debug(f"Workflow Output: Successful project - {project_id}.")
+                        # ----------------------------------------------- - ---------------------------------------------- #
                 except Exception as e:
                     try:
                         project = sly.project.read_single_project(project_dir)
@@ -118,7 +127,12 @@ def import_images_project(
                         )
                         if project is None:
                             raise Exception
-                        api.app.add_output_project(project)
+                        # -------------------------------------- Add Workflow Output ------------------------------------- #
+                        g.workflow.add_output(project.id)
+                        sly.logger.debug(
+                            f"Workflow Output: Project without annotations - {project.id}."
+                        )
+                        # ----------------------------------------------- - ---------------------------------------------- #
                         projects_without_ann += 1
                     except Exception as e:
                         failed_projects += 1
@@ -148,8 +162,10 @@ def import_images_project(
         project = f.upload_only_images(api, only_images)
         if project is None:
             raise Exception(f"Failed to import data. Not found images.")
-        api.app.add_output_project(project)
-
+        # -------------------------------------- Add Workflow Output ------------------------------------- #
+        g.workflow.add_output(project.id)
+        sly.logger.debug(f"Workflow Output: Project only images - {project.id}.")
+        # ----------------------------------------------- - ---------------------------------------------- #
     g.my_app.stop()
 
 
