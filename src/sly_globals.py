@@ -5,6 +5,9 @@ from dotenv import load_dotenv
 import supervisely as sly
 from supervisely.annotation.annotation import AnnotationJsonFields
 
+from workflow import Workflow
+
+
 if sly.is_development():
     load_dotenv("local.env")
     load_dotenv(os.path.expanduser("~/supervisely.env"))
@@ -13,9 +16,11 @@ if sly.is_development():
 api = sly.Api.from_env()
 my_app = sly.AppService()
 
+
 TEAM_ID = sly.env.team_id()
 WORKSPACE_ID = sly.env.workspace_id()
 TASK_ID = sly.env.task_id()
+
 
 INPUT_DIR = sly.env.folder(raise_not_found=False)
 INPUT_FILE = sly.env.file(raise_not_found=False)
