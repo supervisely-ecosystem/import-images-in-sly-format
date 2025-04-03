@@ -47,18 +47,61 @@ def get_progress_cb(
 
 
 def download_file_from_link(link, file_name, archive_path, progress_message, app_logger):
-    response = requests.head(link, allow_redirects=True)
-    sizeb = int(response.headers.get("content-length", 0))
-    progress_cb = get_progress_cb(g.api, g.TASK_ID, progress_message, sizeb, is_size=True)
+
+    def _download():
+        try:
+            with requests.get(link, stream=True, allow_redirects=True) as r:
+                r.raise_for_status()
+                total_size_in_bytes = int(r.headers.get("content-length", 0))
+                progress.set(0, total_size_in_bytes) if progress_cb is not None else None
+                with open(archive_path, "wb") as f:
+                    while chunk := r.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                        progress_cb(len(chunk)) if progress_cb is not None else None
+        except requests.exceptions.Timeout as e:
+            message = (
+                "Request timed out. "
+                "This may be due to server-side security measures, network congestion, or other issues. "
+                "Please check your server logs for more information."
+            )
+            app_logger.warn(msg=message)
+            raise e
+
+    # Initialize progress callback with a temporary size (will be updated during download)
+    # progress_cb = get_progress_cb(g.api, g.TASK_ID, progress_message, 0, is_size=True)
+
+    progress = sly.Progress(progress_message, 0, is_size=True)
+    progress_cb = functools.partial(
+        update_progress, api=g.api, task_id=g.TASK_ID, progress=progress
+    )
+    progress_cb(0)
+
     if not file_exists(archive_path):
-        download(link, archive_path, cache=g.my_app.cache, progress=progress_cb)
-    if file_exists(archive_path) and sizeb != os.path.getsize(archive_path):
-        silent_remove(archive_path)
-        raise Exception(
-            f"Failed to download dataset archive. "
-            "It may be due to high load on the server. "
-            f"Please, try again later."
-        )
+        if g.my_app.cache is not None:
+            cache_path = g.my_app.cache.check_storage_object(
+                sly.fs.get_string_hash(link), get_file_ext(archive_path)
+            )
+            if cache_path is None:
+                # file not in cache
+                _download()
+                g.my_app.cache.write_object(archive_path, sly.fs.get_string_hash(link))
+            else:
+                archive_size = os.path.getsize(archive_path)
+                progress.set(0, archive_size)
+                g.my_app.cache.read_object(sly.fs.get_string_hash(link), archive_path)
+                progress_cb(archive_size) if progress_cb is not None else None
+        else:
+            _download()
+
+    if file_exists(archive_path):
+        sizeb = os.path.getsize(archive_path)
+        if sizeb == 0:
+            silent_remove(archive_path)
+            raise Exception(
+                f"Failed to download dataset archive. "
+                "It may be due to high load on the server. "
+                f"Please, try again later."
+            )
     app_logger.info(f"{file_name} has been successfully downloaded")
 
 
