@@ -55,9 +55,10 @@ def download_file_from_link(link, file_name, archive_path, progress_message, app
                 total_size_in_bytes = int(r.headers.get("content-length", 0))
                 progress.set(0, total_size_in_bytes) if progress_cb is not None else None
                 with open(archive_path, "wb") as f:
-                    while chunk := r.iter_content(chunk_size=8192):
-                        f.write(chunk)
-                        progress_cb(len(chunk)) if progress_cb is not None else None
+                    for chunk in r.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+                            progress_cb(len(chunk)) if progress_cb is not None else None
         except requests.exceptions.Timeout as e:
             message = (
                 "Request timed out. "
