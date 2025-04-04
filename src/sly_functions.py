@@ -47,12 +47,16 @@ def get_progress_cb(
 
 
 def download_file_from_link(link, file_name, archive_path, progress_message, app_logger):
-    response = requests.head(link, allow_redirects=True)
-    sizeb = int(response.headers.get("content-length", 0))
-    progress_cb = get_progress_cb(g.api, g.TASK_ID, progress_message, sizeb, is_size=True)
+    progress = sly.Progress(progress_message, 0, is_size=True)
+    progress_cb = functools.partial(
+        update_progress, api=g.api, task_id=g.TASK_ID, progress=progress
+    )
+    progress_cb(0)
     if not file_exists(archive_path):
-        download(link, archive_path, cache=g.my_app.cache, progress=progress_cb)
-    if file_exists(archive_path) and sizeb != os.path.getsize(archive_path):
+        download(link, archive_path, cache=g.my_app.cache, progress=progress)
+
+    sizeb = os.path.getsize(archive_path)
+    if progress.total != sizeb:
         silent_remove(archive_path)
         raise Exception(
             f"Failed to download dataset archive. "

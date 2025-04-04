@@ -30,9 +30,7 @@ if EXTERNAL_LINK is not None:
         raise ValueError("The link must start with 'https://' or 'http://'")
 
 
-sly.logger.debug(
-    f"INPUT_DIR: {INPUT_DIR}, INPUT_FILE: {INPUT_FILE}, EXTERNAL_LINK=f{EXTERNAL_LINK}"
-)
+sly.logger.debug(f"INPUT_DIR: {INPUT_DIR}, INPUT_FILE: {INPUT_FILE}, EXTERNAL_LINK={EXTERNAL_LINK}")
 
 IS_ON_AGENT = False
 if INPUT_DIR:
