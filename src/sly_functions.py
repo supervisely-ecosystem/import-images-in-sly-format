@@ -52,10 +52,9 @@ def download_file_from_link(link, file_name, archive_path, progress_message, app
         update_progress, api=g.api, task_id=g.TASK_ID, progress=progress
     )
     progress_cb(0)
-
-    download(link, archive_path, cache=g.my_app.cache, progress=progress)
-
-    if file_exists(archive_path):
+    if not file_exists(archive_path):
+        download(link, archive_path, cache=g.my_app.cache, progress=progress)
+    else:
         sizeb = os.path.getsize(archive_path)
         if sizeb == 0:
             silent_remove(archive_path)
