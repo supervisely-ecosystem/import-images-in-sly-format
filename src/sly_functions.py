@@ -47,52 +47,13 @@ def get_progress_cb(
 
 
 def download_file_from_link(link, file_name, archive_path, progress_message, app_logger):
-
-    def _download():
-        try:
-            with requests.get(link, stream=True, allow_redirects=True) as r:
-                r.raise_for_status()
-                total_size_in_bytes = int(r.headers.get("content-length", 0))
-                progress.set(0, total_size_in_bytes) if progress_cb is not None else None
-                with open(archive_path, "wb") as f:
-                    for chunk in r.iter_content(chunk_size=8192):
-                        if chunk:
-                            f.write(chunk)
-                            progress_cb(len(chunk)) if progress_cb is not None else None
-        except requests.exceptions.Timeout as e:
-            message = (
-                "Request timed out. "
-                "This may be due to server-side security measures, network congestion, or other issues. "
-                "Please check your server logs for more information."
-            )
-            app_logger.warn(msg=message)
-            raise e
-
-    # Initialize progress callback with a temporary size (will be updated during download)
-    # progress_cb = get_progress_cb(g.api, g.TASK_ID, progress_message, 0, is_size=True)
-
     progress = sly.Progress(progress_message, 0, is_size=True)
     progress_cb = functools.partial(
         update_progress, api=g.api, task_id=g.TASK_ID, progress=progress
     )
     progress_cb(0)
 
-    if not file_exists(archive_path):
-        if g.my_app.cache is not None:
-            cache_path = g.my_app.cache.check_storage_object(
-                sly.fs.get_string_hash(link), get_file_ext(archive_path)
-            )
-            if cache_path is None:
-                # file not in cache
-                _download()
-                g.my_app.cache.write_object(archive_path, sly.fs.get_string_hash(link))
-            else:
-                archive_size = os.path.getsize(archive_path)
-                progress.set(0, archive_size)
-                g.my_app.cache.read_object(sly.fs.get_string_hash(link), archive_path)
-                progress_cb(archive_size) if progress_cb is not None else None
-        else:
-            _download()
+    download(link, archive_path, cache=g.my_app.cache, progress=progress)
 
     if file_exists(archive_path):
         sizeb = os.path.getsize(archive_path)
