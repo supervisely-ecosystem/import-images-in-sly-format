@@ -47,16 +47,13 @@ def get_progress_cb(
 
 
 def download_file_from_link(link, file_name, archive_path, progress_message, app_logger):
-    progress = sly.Progress(progress_message, 0, is_size=True)
-    progress_cb = functools.partial(
-        update_progress, api=g.api, task_id=g.TASK_ID, progress=progress
-    )
-    progress_cb(0)
-    if not file_exists(archive_path):
-        download(link, archive_path, cache=g.my_app.cache, progress=progress)
+    with requests.get(link, allow_redirects=True, stream=True) as r:
+        sizeb = int(r.headers.get("content-length", 0))
+    progress_cb = get_progress_cb(g.api, g.TASK_ID, progress_message, sizeb, is_size=True)
 
-    sizeb = os.path.getsize(archive_path)
-    if progress.total != sizeb:
+    if not file_exists(archive_path):
+        download(link, archive_path, cache=g.my_app.cache, progress=progress_cb)
+    if file_exists(archive_path) and sizeb != os.path.getsize(archive_path):
         silent_remove(archive_path)
         raise Exception(
             f"Failed to download dataset archive. "
@@ -64,61 +61,6 @@ def download_file_from_link(link, file_name, archive_path, progress_message, app
             f"Please, try again later."
         )
     app_logger.info(f"{file_name} has been successfully downloaded")
-
-
-def download_file_from_dropbox(shared_link: str, destination_path, progress_message, app_logger):
-    retry_attemp = 0
-    timeout = 10
-
-    total_size = None
-    progress_bar = None
-
-    while True:
-        try:
-            with open(destination_path, "ab") as file:
-                response = requests.get(
-                    shared_link,
-                    stream=True,
-                    headers={"Range": f"bytes={file.tell()}-"},
-                    timeout=timeout,
-                )
-                if total_size is None:
-                    total_size = int(response.headers.get("content-length", 0))
-                    progress_bar = tqdm(
-                        desc=progress_message,
-                        total=total_size,
-                        unit="B",
-                        unit_scale=True,
-                    )
-                app_logger.info("Connection established")
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        file.write(chunk)
-                        progress_bar.update(len(chunk))
-                        retry_attemp = 0
-        except requests.exceptions.RequestException as e:
-            retry_attemp += 1
-            if timeout < 90:
-                timeout += 10
-            if retry_attemp == 9:
-                raise e
-            app_logger.warning(
-                f"Downloading request error, please wait ... Retrying ({retry_attemp}/8)"
-            )
-            if retry_attemp <= 4:
-                time.sleep(5)
-            elif 4 < retry_attemp < 9:
-                time.sleep(10)
-        except Exception as e:
-            retry_attemp += 1
-            if retry_attemp == 3:
-                raise e
-            app_logger.warning(f"Error: {str(e)}. Retrying ({retry_attemp}/2)")
-
-        else:
-            filename = get_file_name(destination_path)
-            app_logger.info(f"{filename} downloaded successfully")
-            break
 
 
 def search_projects(dir_path):
@@ -302,21 +244,13 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
         if not os.path.exists(proj_path):
             mkdir(proj_path, True)
         save_archive_path = os.path.join(proj_path, file_name)
-        if remote_path.startswith("https://www.dropbox.com/"):
-            download_file_from_dropbox(
-                remote_path,
-                save_archive_path,
-                f"Downloading archive from link",
-                g.my_app.logger,
-            )
-        else:
-            download_file_from_link(
-                link=remote_path,
-                file_name=file_name,
-                archive_path=save_archive_path,
-                progress_message=f"Downloading archive from link",
-                app_logger=g.my_app.logger,
-            )
+        download_file_from_link(
+            link=remote_path,
+            file_name=file_name,
+            archive_path=save_archive_path,
+            progress_message=f"Downloading archive from link",
+            app_logger=g.my_app.logger,
+        )
         input_path = os.path.join(save_path, get_file_name(proj_path))
         if not is_archive(save_archive_path):
             raise Exception(f"Downloaded file is not archive. Path: {save_archive_path}")
