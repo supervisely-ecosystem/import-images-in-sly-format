@@ -47,19 +47,20 @@ def get_progress_cb(
 
 
 def download_file_from_link(link, file_name, archive_path, progress_message, app_logger):
-    with requests.get(link, allow_redirects=True, stream=True) as r:
-        sizeb = int(r.headers.get("content-length", 0))
-    progress_cb = get_progress_cb(g.api, g.TASK_ID, progress_message, sizeb, is_size=True)
-
     if not file_exists(archive_path):
-        download(link, archive_path, cache=g.my_app.cache, progress=progress_cb)
-    if file_exists(archive_path) and sizeb != os.path.getsize(archive_path):
-        silent_remove(archive_path)
-        raise Exception(
-            f"Failed to download dataset archive. "
-            "It may be due to high load on the server. "
-            f"Please, try again later."
+        progress = sly.Progress(progress_message, None, is_size=True)
+        progress_cb = functools.partial(
+            update_progress, api=g.api, task_id=g.TASK_ID, progress=progress
         )
+        progress_cb(0)
+        download(link, archive_path, cache=g.my_app.cache, progress=progress)
+    else:
+        with requests.get(link, allow_redirects=True, stream=True) as r:
+            sizeb = int(r.headers.get("content-length", 0))
+        if sizeb != os.path.getsize(archive_path):
+            silent_remove(archive_path)
+            raise Exception("Failed to download dataset archive.")
+
     app_logger.info(f"{file_name} has been successfully downloaded")
 
 
