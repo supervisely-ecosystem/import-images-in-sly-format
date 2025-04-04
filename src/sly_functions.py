@@ -48,7 +48,7 @@ def get_progress_cb(
 
 def download_file_from_link(link, file_name, archive_path, progress_message, app_logger):
     if not file_exists(archive_path):
-        progress = sly.Progress(progress_message, None, is_size=True)
+        progress = sly.Progress(progress_message, 0, is_size=True)
         progress_cb = functools.partial(
             update_progress, api=g.api, task_id=g.TASK_ID, progress=progress
         )
