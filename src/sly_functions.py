@@ -54,15 +54,15 @@ def download_file_from_link(link, file_name, archive_path, progress_message, app
     progress_cb(0)
     if not file_exists(archive_path):
         download(link, archive_path, cache=g.my_app.cache, progress=progress)
-    else:
-        sizeb = os.path.getsize(archive_path)
-        if sizeb == 0:
-            silent_remove(archive_path)
-            raise Exception(
-                f"Failed to download dataset archive. "
-                "It may be due to high load on the server. "
-                f"Please, try again later."
-            )
+
+    sizeb = os.path.getsize(archive_path)
+    if progress.total != sizeb:
+        silent_remove(archive_path)
+        raise Exception(
+            f"Failed to download dataset archive. "
+            "It may be due to high load on the server. "
+            f"Please, try again later."
+        )
     app_logger.info(f"{file_name} has been successfully downloaded")
 
 
