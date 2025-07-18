@@ -6,7 +6,7 @@
     "images"
   ],
   "description": "Images with corresponding annotations",
-  "docker_image": "supervisely/import-export:6.73.345",
+  "docker_image": "supervisely/import-export:6.73.403",
   "main_script": "src/main.py",
   "task_location": "workspace_tasks",
   "icon": "https://i.imgur.com/lmbzQd0.png",
@@ -14,7 +14,7 @@
   "icon_cover": true,
   "headless": true,
   "min_agent_version": "6.7.4",
-  "min_instance_version": "6.12.44",
+  "min_instance_version": "6.14.0",
   "context_menu": {
     "context_category": "Import",
     "target": [
