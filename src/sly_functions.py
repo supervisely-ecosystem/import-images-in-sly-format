@@ -129,7 +129,7 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
                 )
                 g.INPUT_DIR, g.INPUT_FILE = None, listdir[0]
             else:
-                if all(
+                if listdir and all(
                     basename(normpath(x)) in ["img", "ann", "meta"]
                     for x in listdir
                     if api.file.dir_exists(g.TEAM_ID, x)
@@ -155,25 +155,33 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
                 g.INPUT_DIR, g.INPUT_FILE = dirname(g.INPUT_FILE), None
             elif sly.image.is_valid_ext(file_ext) or file_ext == ".json":
                 parent_dir = dirname(normpath(g.INPUT_FILE))
-                listdir = api.file.listdir(g.TEAM_ID, parent_dir)
-                if all(
-                    basename(normpath(x)) in ["img", "ann", "meta"]
-                    for x in listdir
-                    if api.file.dir_exists(g.TEAM_ID, x)
-                ):
-                    parent_dir = dirname(normpath(parent_dir))
+                # Special case: a single image in TeamFiles root ("/") must not trigger
+                # downloading the entire root directory.
+                if sly.image.is_valid_ext(file_ext) and parent_dir in ["", os.path.sep]:
+                    if not parent_dir.endswith("/"):
+                        parent_dir += "/"
+                    g.INPUT_DIR, g.INPUT_FILE = None, g.INPUT_FILE
+                else:
                     listdir = api.file.listdir(g.TEAM_ID, parent_dir)
-                if basename(normpath(parent_dir)) in ["img", "ann", "meta"]:
-                    parent_dir = dirname(normpath(parent_dir))
-                    listdir = api.file.listdir(g.TEAM_ID, parent_dir)
-                if "meta.json" in [
-                    basename(normpath(x)) for x in api.file.listdir(g.TEAM_ID, dirname(parent_dir))
-                ]:
-                    sly.logger.info(f"Found meta.json in {dirname(parent_dir)}.")
-                    parent_dir = dirname(normpath(parent_dir))
-                if not parent_dir.endswith("/"):
-                    parent_dir += "/"
-                g.INPUT_DIR, g.INPUT_FILE = parent_dir, None
+                    if listdir and all(
+                        basename(normpath(x)) in ["img", "ann", "meta"]
+                        for x in listdir
+                        if api.file.dir_exists(g.TEAM_ID, x)
+                    ):
+                        parent_dir = dirname(normpath(parent_dir))
+                        listdir = api.file.listdir(g.TEAM_ID, parent_dir)
+                    if basename(normpath(parent_dir)) in ["img", "ann", "meta"]:
+                        parent_dir = dirname(normpath(parent_dir))
+                        listdir = api.file.listdir(g.TEAM_ID, parent_dir)
+                    if "meta.json" in [
+                        basename(normpath(x))
+                        for x in api.file.listdir(g.TEAM_ID, dirname(parent_dir))
+                    ]:
+                        sly.logger.info(f"Found meta.json in {dirname(parent_dir)}.")
+                        parent_dir = dirname(normpath(parent_dir))
+                    if not parent_dir.endswith("/"):
+                        parent_dir += "/"
+                    g.INPUT_DIR, g.INPUT_FILE = parent_dir, None
 
     if g.INPUT_DIR is not None:
         # If the app received a path to the directory in TeamFiles from environment variables.
@@ -184,7 +192,13 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
         else:
             cur_files_path = g.INPUT_DIR
         remote_path = g.INPUT_DIR
-        input_path = os.path.join(save_path, os.path.basename(os.path.normpath(cur_files_path)))
+        base_name = os.path.basename(os.path.normpath(cur_files_path))
+        if base_name in ["", os.path.sep]:
+            raise Exception(
+                "Input directory points to TeamFiles root ('/'). "
+                "Please select a subfolder (or upload an archive)."
+            )
+        input_path = os.path.join(save_path, base_name)
         sizeb = api.file.get_directory_size(g.TEAM_ID, remote_path)
         progress_cb = get_progress_cb(
             api=api,
@@ -211,32 +225,52 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
             cur_files_path = g.INPUT_FILE
         remote_path = g.INPUT_FILE
 
-        save_archive_path = os.path.join(save_path, get_file_name_with_ext(cur_files_path))
-        sizeb = api.file.get_info_by_path(g.TEAM_ID, remote_path).sizeb
-        progress_cb = get_progress_cb(
-            api=api,
-            task_id=task_id,
-            message=f"Downloading {remote_path.lstrip('/')}",
-            total=sizeb,
-            is_size=True,
-        )
-        api.file.download(
-            team_id=g.TEAM_ID,
-            remote_path=remote_path,
-            local_save_path=save_archive_path,
-            progress_cb=progress_cb,
-        )
-
-        input_path = os.path.join(save_path, get_file_name(cur_files_path))
-        if not is_archive(save_archive_path):
-            sly.logger.warn(
-                f"Unsupported file extension ({save_archive_path}). \n"
-                "Please, upload the data as directory or archive (.tar, .tar.gz or .zip)."
+        file_ext = get_file_ext(cur_files_path)
+        if sly.image.is_valid_ext(file_ext) and not is_archive(cur_files_path):
+            input_path = os.path.join(save_path, get_file_name(cur_files_path))
+            mkdir(input_path, True)
+            local_img_path = os.path.join(input_path, get_file_name_with_ext(cur_files_path))
+            sizeb = api.file.get_info_by_path(g.TEAM_ID, remote_path).sizeb
+            progress_cb = get_progress_cb(
+                api=api,
+                task_id=task_id,
+                message=f"Downloading {remote_path.lstrip('/')}",
+                total=sizeb,
+                is_size=True,
             )
-            raise Exception(f"Downloaded file has unsupported extension. Read the app overview.")
-        sly.fs.unpack_archive(save_archive_path, input_path)
-        sly.logger.info(f"Unpacked archive {save_archive_path} to {input_path}.")
-        silent_remove(save_archive_path)
+            api.file.download(
+                team_id=g.TEAM_ID,
+                remote_path=remote_path,
+                local_save_path=local_img_path,
+                progress_cb=progress_cb,
+            )
+        else:
+            save_archive_path = os.path.join(save_path, get_file_name_with_ext(cur_files_path))
+            sizeb = api.file.get_info_by_path(g.TEAM_ID, remote_path).sizeb
+            progress_cb = get_progress_cb(
+                api=api,
+                task_id=task_id,
+                message=f"Downloading {remote_path.lstrip('/')}",
+                total=sizeb,
+                is_size=True,
+            )
+            api.file.download(
+                team_id=g.TEAM_ID,
+                remote_path=remote_path,
+                local_save_path=save_archive_path,
+                progress_cb=progress_cb,
+            )
+
+            input_path = os.path.join(save_path, get_file_name(cur_files_path))
+            if not is_archive(save_archive_path):
+                sly.logger.warn(
+                    f"Unsupported file extension ({save_archive_path}). \n"
+                    "Please, upload the data as directory or archive (.tar, .tar.gz or .zip)."
+                )
+                raise Exception("Downloaded file has unsupported extension. Read the app overview.")
+            sly.fs.unpack_archive(save_archive_path, input_path)
+            sly.logger.info(f"Unpacked archive {save_archive_path} to {input_path}.")
+            silent_remove(save_archive_path)
 
     elif g.EXTERNAL_LINK is not None:
         remote_path = g.EXTERNAL_LINK
