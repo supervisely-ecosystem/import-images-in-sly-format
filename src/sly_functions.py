@@ -8,6 +8,7 @@ from os.path import basename, dirname, normpath
 from typing import Callable, List
 
 import requests
+import sly_globals as g
 import supervisely as sly
 from supervisely.annotation.annotation import AnnotationJsonFields
 from supervisely.annotation.label import LabelJsonFields
@@ -21,8 +22,6 @@ from supervisely.io.fs import (
     silent_remove,
 )
 from tqdm import tqdm
-
-import sly_globals as g
 
 
 def update_progress(count, api: sly.Api, task_id: int, progress: sly.Progress) -> None:
@@ -46,7 +45,9 @@ def get_progress_cb(
     return progress_cb
 
 
-def download_file_from_link(link, file_name, archive_path, progress_message, app_logger):
+def download_file_from_link(
+    link, file_name, archive_path, progress_message, app_logger
+):
     if not file_exists(archive_path):
         progress = sly.Progress(progress_message, 0, is_size=True)
         progress_cb = functools.partial(
@@ -95,7 +96,9 @@ def search_projects(dir_path):
 
 def search_images_dir(dir_path):
     listdir = os.listdir(dir_path)
-    images_found = any([sly.image.has_valid_ext(os.path.join(dir_path, f)) for f in listdir])
+    images_found = any(
+        [sly.image.has_valid_ext(os.path.join(dir_path, f)) for f in listdir]
+    )
     return images_found
 
 
@@ -120,7 +123,9 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
     if not g.IS_ON_AGENT:
         if g.INPUT_DIR:
             listdir = api.file.listdir(g.TEAM_ID, g.INPUT_DIR)
-            archives_cnt = len([is_archive(file) for file in listdir if is_archive(file) is True])
+            archives_cnt = len(
+                [is_archive(file) for file in listdir if is_archive(file) is True]
+            )
             if archives_cnt > 1:
                 raise Exception("Multiple archives are not supported.")
             if len(listdir) == 1 and archives_cnt == 1:
@@ -229,7 +234,9 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
         if sly.image.is_valid_ext(file_ext) and not is_archive(cur_files_path):
             input_path = os.path.join(save_path, get_file_name(cur_files_path))
             mkdir(input_path, True)
-            local_img_path = os.path.join(input_path, get_file_name_with_ext(cur_files_path))
+            local_img_path = os.path.join(
+                input_path, get_file_name_with_ext(cur_files_path)
+            )
             sizeb = api.file.get_info_by_path(g.TEAM_ID, remote_path).sizeb
             progress_cb = get_progress_cb(
                 api=api,
@@ -245,7 +252,9 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
                 progress_cb=progress_cb,
             )
         else:
-            save_archive_path = os.path.join(save_path, get_file_name_with_ext(cur_files_path))
+            save_archive_path = os.path.join(
+                save_path, get_file_name_with_ext(cur_files_path)
+            )
             sizeb = api.file.get_info_by_path(g.TEAM_ID, remote_path).sizeb
             progress_cb = get_progress_cb(
                 api=api,
@@ -267,7 +276,9 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
                     f"Unsupported file extension ({save_archive_path}). \n"
                     "Please, upload the data as directory or archive (.tar, .tar.gz or .zip)."
                 )
-                raise Exception("Downloaded file has unsupported extension. Read the app overview.")
+                raise Exception(
+                    "Downloaded file has unsupported extension. Read the app overview."
+                )
             sly.fs.unpack_archive(save_archive_path, input_path)
             sly.logger.info(f"Unpacked archive {save_archive_path} to {input_path}.")
             silent_remove(save_archive_path)
@@ -288,20 +299,28 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
         )
         input_path = os.path.join(save_path, get_file_name(proj_path))
         if not is_archive(save_archive_path):
-            raise Exception(f"Downloaded file is not archive. Path: {save_archive_path}")
+            raise Exception(
+                f"Downloaded file is not archive. Path: {save_archive_path}"
+            )
         try:
             sly.fs.unpack_archive(save_archive_path, input_path)
             # TODO Detecting multi-part archives in the main archive and unpacking them
         except Exception as e:
-            raise Exception(f"Failed to read dataset archive file. Please try again. Error: {e}")
+            raise Exception(
+                f"Failed to read dataset archive file. Please try again. Error: {e}"
+            )
         sly.logger.debug(f"Unpacked archive {save_archive_path} to {input_path}.")
         silent_remove(save_archive_path)
 
-    project_dirs = [project_dir for project_dir in sly.fs.dirs_filter(input_path, search_projects)]
+    project_dirs = [
+        project_dir for project_dir in sly.fs.dirs_filter(input_path, search_projects)
+    ]
 
     only_images = []
     if len(project_dirs) == 0:
-        only_images = [img_dir for img_dir in sly.fs.dirs_filter(input_path, search_images_dir)]
+        only_images = [
+            img_dir for img_dir in sly.fs.dirs_filter(input_path, search_images_dir)
+        ]
 
     bad_projs = defaultdict(int)
     project_type_to_cls = {
@@ -336,7 +355,9 @@ def download_data(api: sly.Api, task_id: int, save_path: str) -> List[str]:
             bad_proj_msg += f"{cnt} {pr_type}; "
 
     if bad_proj_cnt > 0:
-        sly.logger.warn(f"{bad_proj_msg}. Make sure that you are uploading only images projects.")
+        sly.logger.warn(
+            f"{bad_proj_msg}. Make sure that you are uploading only images projects."
+        )
     return project_dirs, only_images
 
 
@@ -358,7 +379,9 @@ def create_empty_ann(imgs_dir, img_name, ann_dir):
 
 def upload_only_images(api: sly.Api, img_dirs: list, recursively: bool = False):
     project_name = "Images project"
-    project = api.project.create(g.WORKSPACE_ID, project_name, change_name_if_conflict=True)
+    project = api.project.create(
+        g.WORKSPACE_ID, project_name, change_name_if_conflict=True
+    )
     images_cnt = 0
     for img_dir in img_dirs:
         if not sly.fs.dir_exists(img_dir):
@@ -377,15 +400,21 @@ def upload_only_images(api: sly.Api, img_dirs: list, recursively: bool = False):
         if len(image_paths) == 0:
             continue
         dataset_name = os.path.basename(os.path.normpath(img_dir))
-        dataset = api.dataset.create(project.id, dataset_name, change_name_if_conflict=True)
+        dataset = api.dataset.create(
+            project.id, dataset_name, change_name_if_conflict=True
+        )
         image_names = [
-            os.path.basename(path) for path in image_paths if sly.image.has_valid_ext(path)
+            os.path.basename(path)
+            for path in image_paths
+            if sly.image.has_valid_ext(path)
         ]
         images = api.image.upload_paths(dataset.id, image_names, image_paths)
         images_cnt += len(images)
         sly.fs.remove_dir(img_dir)
     if images_cnt > 1:
-        sly.logger.info(f"{images_cnt} images were uploaded to project '{project.name}'.")
+        sly.logger.info(
+            f"{images_cnt} images were uploaded to project '{project.name}'."
+        )
     elif images_cnt == 1:
         sly.logger.info(f"{images_cnt} image was uploaded to project '{project.name}'.")
     else:
@@ -400,7 +429,9 @@ def check_items(imgs_dir, ann_dir, meta, keep_classes, remove_classes):
     failed_ann_names = defaultdict(list)
     error_to_trace = defaultdict(str)
     img_names = [name for name in os.listdir(imgs_dir) if sly.image.has_valid_ext(name)]
-    raw_ann_names = [name for name in os.listdir(ann_dir) if get_file_ext(name) == g.ANN_EXT]
+    raw_ann_names = [
+        name for name in os.listdir(ann_dir) if get_file_ext(name) == g.ANN_EXT
+    ]
     res_ann_names = []
     for img_name in img_names:
         try:
@@ -413,9 +444,13 @@ def check_items(imgs_dir, ann_dir, meta, keep_classes, remove_classes):
                 with open(ann_path) as ann_file:
                     data = json.load(ann_file)
                     if not isinstance(data[AnnotationJsonFields.LABELS], list):
-                        raise Exception("'objects' field must have a list type (list of dicts)")
+                        raise Exception(
+                            "'objects' field must have a list type (list of dicts)"
+                        )
                     if not isinstance(data[AnnotationJsonFields.IMG_TAGS], list):
-                        raise Exception("'tags' field must have a list type (list of dicts)")
+                        raise Exception(
+                            "'tags' field must have a list type (list of dicts)"
+                        )
                     for field in g.REQUIRED_FIELDS:
                         if field not in data:
                             raise Exception(f"No '{field}' field in annotation file")
@@ -424,9 +459,14 @@ def check_items(imgs_dir, ann_dir, meta, keep_classes, remove_classes):
                     if objs_list_type is None:
                         raise Exception("No 'objects' field in annotation file")
                     if objs_list_type is not list:
-                        raise Exception(f"'objects' field must be a list, not a {objs_list_type}")
+                        raise Exception(
+                            f"'objects' field must be a list, not a {objs_list_type}"
+                        )
                     for label_json in objs_list:
-                        if label_json.get(LabelJsonFields.OBJ_CLASS_NAME) in remove_classes:
+                        if (
+                            label_json.get(LabelJsonFields.OBJ_CLASS_NAME)
+                            in remove_classes
+                        ):
                             need_to_filter = True
                         sly.Label.from_json(label_json, meta)
                 if need_to_filter:
