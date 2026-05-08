@@ -1,9 +1,8 @@
 import os
 
-import supervisely as sly
-
 import sly_functions as f
 import sly_globals as g
+import supervisely as sly
 
 
 @g.my_app.callback("import-images-project")
@@ -11,9 +10,13 @@ import sly_globals as g
 def import_images_project(
     api: sly.Api, task_id: int, context: dict, state: dict, app_logger
 ) -> None:
-    project_dirs, only_images = f.download_data(api=api, task_id=task_id, save_path=g.STORAGE_DIR)
+    project_dirs, only_images = f.download_data(
+        api=api, task_id=task_id, save_path=g.STORAGE_DIR
+    )
     if len(project_dirs) == 0 and len(only_images) == 0:
-        raise Exception("Not found any images for import. Please, check your input data.")
+        raise Exception(
+            "Not found any images for import. Please, check your input data."
+        )
 
     if len(project_dirs) > 0:
         sly.logger.info(
@@ -34,8 +37,12 @@ def import_images_project(
 
             try:
                 project_fs = sly.Project(project_dir, sly.OpenMode.READ)
-                sly.logger.info(f"Successfully opened project {project_fs.name} from {project_dir}")
-                project_id, _ = project_fs.upload(project_dir, api, g.WORKSPACE_ID, project_name)
+                sly.logger.info(
+                    f"Successfully opened project {project_fs.name} from {project_dir}"
+                )
+                project_id, _ = project_fs.upload(
+                    project_dir, api, g.WORKSPACE_ID, project_name
+                )
                 sly.logger.info(f"Project {project_name} uploaded successfully.")
                 success_projects += 1
                 # -------------------------------------- Add Workflow Output ------------------------------------- #
@@ -90,7 +97,9 @@ def import_images_project(
                 if not sly.fs.dir_exists(ann_dir):
                     sly.fs.mkdir(ann_dir)
 
-                ds_items_cnt = f.check_items(imgs_dir, ann_dir, meta, keep_classes, remove_classes)
+                ds_items_cnt = f.check_items(
+                    imgs_dir, ann_dir, meta, keep_classes, remove_classes
+                )
                 if ds_items_cnt == 0:
                     invalid_datasets.append(dataset_path)
                     continue
@@ -102,7 +111,9 @@ def import_images_project(
                     f"Incorrect Supervisely format datasets: {invalid_datasets}. \n"
                     f"Trying to upload only images."
                 )
-                project_without_ann = f.upload_only_images(api, invalid_datasets, recursively=True)
+                project_without_ann = f.upload_only_images(
+                    api, invalid_datasets, recursively=True
+                )
                 if project_without_ann is not None:
                     project_items_cnt += project_without_ann.items_count
                     projects_without_ann += 1
@@ -126,7 +137,9 @@ def import_images_project(
             if ds_cnt > len(invalid_datasets):
                 try:
                     # find projects again, because some datasets may be already uploaded and removed
-                    for project_dir in sly.fs.dirs_filter(project_dir, f.search_projects):
+                    for project_dir in sly.fs.dirs_filter(
+                        project_dir, f.search_projects
+                    ):
                         progress_project_cb = f.get_progress_cb(
                             api,
                             task_id,
@@ -144,18 +157,26 @@ def import_images_project(
                             progress_cb=progress_project_cb,
                         )
 
-                        sly.logger.info(f"Project '{project_name}' uploaded successfully.")
+                        sly.logger.info(
+                            f"Project '{project_name}' uploaded successfully."
+                        )
                         success_projects += 1
                         # -------------------------------------- Add Workflow Output ------------------------------------- #
                         g.workflow.add_output(project_id)
-                        sly.logger.debug(f"Workflow Output: Successful project - {project_id}.")
+                        sly.logger.debug(
+                            f"Workflow Output: Successful project - {project_id}."
+                        )
                         # ----------------------------------------------- - ---------------------------------------------- #
                 except Exception as e:
                     try:
                         project = sly.project.read_single_project(project_dir)
-                        sly.logger.warn(f"Project '{project_name}' uploading failed: {str(e)}.")
+                        sly.logger.warn(
+                            f"Project '{project_name}' uploading failed: {str(e)}."
+                        )
                         project = f.upload_only_images(
-                            api, [ds.item_dir for ds in project.datasets], recursively=True
+                            api,
+                            [ds.item_dir for ds in project.datasets],
+                            recursively=True,
                         )
                         if project is None:
                             raise Exception
@@ -168,12 +189,16 @@ def import_images_project(
                         projects_without_ann += 1
                     except Exception:
                         failed_projects += 1
-                        sly.logger.warn(f"Not found images in the directory '{project_dir}'.")
+                        sly.logger.warn(
+                            f"Not found images in the directory '{project_dir}'."
+                        )
 
         total = success_projects + projects_without_ann + failed_projects
         msg = f"SUMMARY: \n    Total processed projects: {total}. "
         if success_projects + projects_without_ann > 0:
-            msg += f"\n    Uploaded projects: {success_projects + projects_without_ann} "
+            msg += (
+                f"\n    Uploaded projects: {success_projects + projects_without_ann} "
+            )
         if projects_without_ann > 0:
             msg += f"({projects_without_ann} projects without annotations)."
         if failed_projects > 0:
